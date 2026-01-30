@@ -1,0 +1,5 @@
+streamlit
+fpdf
+streamlit-drawable-canvas
+Pillow
+numpy
