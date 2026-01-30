@@ -191,4 +191,18 @@ if st.button("🚀 GENERATE PDF REPORT", type="primary", use_container_width=Tru
         pdf.ln(10); p_img.save("p.jpg"); v_img.save("v.jpg")
         y_sig = pdf.get_y()
         pdf.image("p.jpg", x=35, y=y_sig, w=50); pdf.image("v.jpg", x=125, y=y_sig, w=50)
-        pdf.set_y(y_sig + 35);
+        pdf.set_y(y_sig + 35); pdf.set_font('Arial', 'B', 10)
+        pdf.cell(90, 10, f"Prepared: {tech_name}", 0, 0, 'C'); pdf.cell(90, 10, f"Verified: {client_name}", 0, 1, 'C')
+
+        # Attachments Page
+        if captions:
+            pdf.add_page(); pdf.set_font('Arial', 'B', 14); pdf.cell(0, 10, "4.0    ATTACHMENTS", 0, 1)
+            for idx, item in enumerate(captions):
+                if idx > 0 and idx % 2 == 0: pdf.add_page()
+                img_pil = Image.open(item['file'])
+                img_pil.save(f"temp_{idx}.jpg")
+                pdf.image(f"temp_{idx}.jpg", x=30, w=150)
+                pdf.set_font('Arial', 'I', 10); pdf.cell(0, 10, f"Figure {idx+1}: {item['label']}", 0, 1, 'C')
+                pdf.ln(5)
+
+        st.download_button("📥 DOWNLOAD REPORT", pdf.output(dest='S').encode('latin-1'), "VTMS_Report.pdf", "application/pdf", use_container_width=True)
