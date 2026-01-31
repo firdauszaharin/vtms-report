@@ -7,12 +7,38 @@ from PIL import Image, ImageOps
 import numpy as np
 from streamlit_drawable_canvas import st_canvas
 
-# --- 1. PENGURUSAN TEMPLATE ---
+# --- 1. SECURITY CHECK (Sistem Password) ---
+def check_password():
+    """Returns True if the user had the correct password."""
+    def password_entered():
+        # Anda boleh tukar password "DausVTMS2026" kepada apa sahaja yang anda mahu
+        if st.session_state["password"] == "DausVTMS2026": 
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]  # padam password dari session untuk keselamatan
+        else:
+            st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state:
+        st.header("🔒 Akses Terhad")
+        st.text_input("Sila Masukkan Password Akses", type="password", on_change=password_entered, key="password")
+        return False
+    elif not st.session_state["password_correct"]:
+        st.header("🔒 Akses Terhad")
+        st.text_input("Sila Masukkan Password Akses", type="password", on_change=password_entered, key="password")
+        st.error("😕 Password salah. Sila hubungi pentadbir sistem.")
+        return False
+    else:
+        return True
+
+# Berhenti di sini jika password belum dimasukkan atau salah
+if not check_password():
+    st.stop()
+
+# --- 2. PENGURUSAN TEMPLATE ---
 TEMPLATE_FILE = 'templates.json'
-TAMBAHAN_FILE = 'templates_tambahan.json' # Fail simpanan untuk perubahan (Add/Delete)
+TAMBAHAN_FILE = 'templates_tambahan.json'
 
 def load_templates():
-    # 1. Load default dari kod jika fail templates.json tak wujud
     defaults = {
         "OPERATOR MAINTENANCE CHECKLIST": {
             "headers": ["NO", "ITEM / ACTIVITY", "PASS", "FAIL", "REMARK"],
@@ -46,28 +72,24 @@ def load_templates():
         }
     }
 
-    # Cipta fail asal jika tiada (untuk rujukan sahaja)
     if not os.path.exists(TEMPLATE_FILE):
         with open(TEMPLATE_FILE, 'w') as f:
             json.dump(defaults, f, indent=4)
 
-    # 2. Keutamaan: Baca fail TAMBAHAN jika wujud (ini mengandungi Add/Delete terbaru)
     if os.path.exists(TAMBAHAN_FILE):
         with open(TAMBAHAN_FILE, 'r') as f:
             return json.load(f)
     
-    # 3. Jika fail tambahan tiada, guna defaults
     return defaults
 
 if 'all_templates' not in st.session_state:
     st.session_state['all_templates'] = load_templates()
 
 def save_templates_to_file():
-    # HANYA simpan ke fail tambahan. Fail asal (TEMPLATE_FILE) tidak akan disentuh.
     with open(TAMBAHAN_FILE, 'w') as f:
         json.dump(st.session_state['all_templates'], f, indent=4)
 
-# --- 2. DATABASE S/N ASAL ---
+# --- 3. DATABASE S/N ---
 sn_database = {
     "1.2 Check SN :": ["4CE442B8B8", "4CE442B8B7", "4CE442B8BD", "4CE442B8BB", "4CE442B8BC", "4CE442B8B9"],
     "3.2 Check ID :": ["1563220541", "75770141", "689509092", "1151380960", "2048014076", "338176953"],
@@ -79,7 +101,7 @@ sn_database = {
     "13.3 Check SN:": ["AW121390192", "AW122210344", "AW119430008"]
 }
 
-# --- 3. PROSES IMEJ & PDF CLASS ---
+# --- 4. PROSES IMEJ & PDF CLASS ---
 def process_image(img_input, target_size=(800, 600)):
     if img_input is None: return None
     try:
@@ -118,7 +140,7 @@ class VTMS_Full_Report(FPDF):
             self.set_x(35); self.set_font('Arial', 'B', 11); self.cell(50, 12, k, 1, 0, 'L')
             self.set_font('Arial', '', 11); self.cell(90, 12, v, 1, 1, 'L')
 
-# --- 4. INTERFACE ---
+# --- 5. INTERFACE ---
 st.set_page_config(page_title="VTMS Reporting System", layout="wide")
 
 with st.sidebar:
@@ -156,7 +178,6 @@ with st.sidebar:
         st.divider()
         st.subheader("Manage Tasks")
         target_sec = st.selectbox("Select Target Section", sec_names)
-        
         current_tasks = []
         for s in st.session_state['all_templates'][selected_template]["content"]:
             if s[0] == target_sec: current_tasks = s[1]; break
@@ -203,7 +224,6 @@ for sec_idx, (sec, tasks) in enumerate(config["content"]):
     with st.expander(sec, expanded=True):
         for t_idx, t in enumerate(tasks):
             u_key = f"{sec_idx}_{t_idx}"
-            
             if config["type"] == "technical":
                 c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
                 c1.write(f"**{t}**")
@@ -221,7 +241,7 @@ for sec_idx, (sec, tasks) in enumerate(config["content"]):
                     rem = c3.text_input("Remarks", key=f"rem_{u_key}")
                 checklist_results.append({"task": t, "res": res, "com": rem})
 
-# --- SUMMARY, EVIDENCE & SIG ---
+# --- SUMMARY & EVIDENCE ---
 if 'issue_list' not in st.session_state: st.session_state['issue_list'] = []
 st.divider(); st.header("⚠️ SUMMARY & ISSUES")
 for i, item in enumerate(st.session_state['issue_list']):
@@ -246,7 +266,7 @@ ca, cb = st.columns(2)
 with ca: st.write("Prepared By:"); sig1 = st_canvas(stroke_width=2, height=150, width=300, key="sig1", background_color="#eee")
 with cb: st.write("Verified By:"); sig2 = st_canvas(stroke_width=2, height=150, width=300, key="sig2", background_color="#eee")
 
-# --- 5. PDF GENERATION ---
+# --- 6. PDF GENERATION ---
 if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=True):
     p_img, v_img = process_image(sig1.image_data), process_image(sig2.image_data)
     if not p_img or not v_img: st.error("Please provide both signatures!")
@@ -258,20 +278,15 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
 
         pdf.cover_page({"owner":sys_owner, "ref":proj_ref, "title":selected_template, "loc":loc, "id":doc_id, "dt":report_dt}, logo_path=l_path)
         
-# --- 1.0 TABLE OF CONTENTS ---
+        # --- 1.0 TABLE OF CONTENTS ---
         pdf.add_page()
-        # Set Bold untuk tajuk utama sahaja
         pdf.set_font('Arial', 'B', 14) 
-        pdf.cell(0, 10, "TABLE OF CONTENTS", 0, 1)
-        pdf.ln(5)
-
-        # Set Normal untuk senarai di bawahnya
+        pdf.cell(0, 10, "TABLE OF CONTENTS", 0, 1); pdf.ln(5)
         pdf.set_font('Arial', '', 10.5) 
         for n, t, p in [("2.0", "DETAILS / CHECKLIST", 3), ("3.0", "SUMMARY & ISSUES", 4), ("4.0", "APPROVAL", 5), ("5.0", "ATTACHMENTS", 6)]:
-            pdf.cell(10, 10, n, 0, 0)
-            pdf.cell(145, 10, t, 0, 0)
-            pdf.cell(0, 10, "Page " + str(p), 0, 1, 'R')
+            pdf.cell(10, 10, n, 0, 0); pdf.cell(145, 10, t, 0, 0); pdf.cell(0, 10, "Page " + str(p), 0, 1, 'R')
 
+        # --- 2.0 DETAILS ---
         pdf.add_page(); pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "2.0    DETAILS / CHECKLIST", 0, 1)
         h_l, w_l = config["headers"], config["widths"]
         pdf.set_font('Arial', 'B', 8); pdf.set_fill_color(230, 230, 230)
@@ -289,8 +304,7 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
                 pdf.cell(sum(w_l), 7, f" {row['task']}", 1, 1, 'L', 1)
             else:
                 pdf.set_font('Arial', '', 7)
-                pdf.cell(w_l[0], 6, str(cnt), 1, 0, 'C')
-                pdf.cell(w_l[1], 6, f" {row['task']}", 1, 0, 'L')
+                pdf.cell(w_l[0], 6, str(cnt), 1, 0, 'C'); pdf.cell(w_l[1], 6, f" {row['task']}", 1, 0, 'L')
                 if config["type"] == "technical":
                     pdf.cell(w_l[2], 6, str(row.get('spec','-')), 1, 0, 'C')
                     pdf.cell(w_l[3], 6, str(row.get('actual','-')), 1, 0, 'C')
@@ -301,6 +315,7 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
                     pdf.cell(w_l[4], 6, f" {row.get('com','')}", 1, 1, 'L')
                 cnt += 1
 
+        # --- 3.0 SUMMARY ---
         pdf.add_page(); pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "3.0    SUMMARY & ISSUES", 0, 1)
         pdf.set_font('Arial', 'B', 9); pdf.set_fill_color(230, 230, 230)
         pdf.cell(15, 10, "NO", 1, 0, 'C', 1); pdf.cell(85, 10, "SUMMARY / ISSUES", 1, 0, 'C', 1); pdf.cell(90, 10, "REMARKS", 1, 1, 'C', 1)
@@ -308,16 +323,17 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
         for idx, item in enumerate(st.session_state['issue_list']):
             pdf.cell(15, 10, str(idx+1), 1, 0, 'C'); pdf.cell(85, 10, item['issue'], 1, 0, 'L'); pdf.cell(90, 10, item['Remarks'], 1, 1, 'L')
 
+        # --- 4.0 APPROVAL ---
         pdf.add_page(); pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "4.0    APPROVAL & ACCEPTANCE", 0, 1); pdf.ln(5)
         pdf.set_font('Arial', 'B', 10); pdf.cell(0, 7, "Confirmation Statement:", 0, 1)
         pdf.set_font('Arial', '', 10)
-        stmt = "The undersigned hereby confirms that the maintenance and inspection services detailed in this report have been carried out and completed in accordance with the project specifications and requirements. All findings and remarks have been noted and verified."
+        stmt = "The undersigned hereby confirms that the maintenance and inspection services detailed in this report have been carried out..."
         pdf.multi_cell(0, 6, stmt, 0, 'L')
-        
         p_img.save("p.png"); v_img.save("v.png")
         pdf.image("p.png", x=30, y=pdf.get_y()+10, w=50); pdf.image("v.png", x=120, y=pdf.get_y()+10, w=50)
         pdf.ln(45); pdf.cell(95, 8, f"PREPARED BY: {tech_name}", 0, 0, 'L'); pdf.cell(95, 8, f"VERIFIED BY: {client_name}", 0, 1, 'L')
 
+        # --- 5.0 ATTACHMENTS ---
         if evidence_data:
             pdf.add_page(); pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "5.0    ATTACHMENTS", 0, 1)
             for i, ev in enumerate(evidence_data):
