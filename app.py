@@ -219,7 +219,14 @@ st.set_page_config(page_title="VTMS Reporting System", layout="wide")
 
 with st.sidebar:
     st.header("🏢 COMPANY ASSETS")
-    logo_file = st.file_uploader("Upload Company Logo", type=['png', 'jpg', 'jpeg'])
+    
+    # Tukar 'logo.png' kepada nama fail logo anda yang sebenar dalam folder
+    FIXED_LOGO_PATH = "logo.png" 
+    
+    if os.path.exists(FIXED_LOGO_PATH):
+        st.image(FIXED_LOGO_PATH, caption="Current Company Logo", width=150)
+    else:
+        st.error(f"Fail {FIXED_LOGO_PATH} tidak dijumpai dalam folder!")
     
     with st.expander("✨ CREATE NEW TEMPLATE"):
         n_name = st.text_input("Template Name")
@@ -342,17 +349,27 @@ ca, cb = st.columns(2)
 with ca: st.write("Prepared By:"); sig1 = st_canvas(stroke_width=2, height=150, width=300, key="sig1", background_color="#ffffff")
 with cb: st.write("Verified By:"); sig2 = st_canvas(stroke_width=2, height=150, width=300, key="sig2", background_color="#ffffff")
 
-# --- 5. PDF GENERATION ---
+# --- 5. PDF GENERATION ---#
 if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=True):
     p_img, v_img = process_image(sig1.image_data), process_image(sig2.image_data)
-    if not p_img or not v_img: st.error("Please provide both signatures!")
+    
+    if not p_img or not v_img: 
+        st.error("Please provide both signatures!")
     else:
         pdf = VTMS_Full_Report(header_title=header_txt)
-        l_path = "temp_logo.png" if logo_file else None
-        if logo_file: 
-            with open(l_path, "wb") as f: f.write(logo_file.getbuffer())
+        
+        # Gunakan path logo yang tetap
+        logo_to_use = FIXED_LOGO_PATH if os.path.exists(FIXED_LOGO_PATH) else None
 
-        pdf.cover_page({"owner":sys_owner, "ref":proj_ref, "title":selected_template, "loc":loc, "id":doc_id, "dt":report_dt}, logo_path=l_path)
+        # Cover Page
+        pdf.cover_page({
+            "owner": sys_owner, 
+            "ref": proj_ref, 
+            "title": selected_template, 
+            "loc": loc, 
+            "id": doc_id, 
+            "dt": report_dt
+        }, logo_path=logo_to_use)
         
 # --- 1.0 TABLE OF CONTENTS ---
         pdf.add_page()
