@@ -11,10 +11,9 @@ from streamlit_drawable_canvas import st_canvas
 def check_password():
     """Returns True if the user had the correct password."""
     def password_entered():
-        # Anda boleh tukar password "DausVTMS2026" kepada apa sahaja yang anda mahu
         if st.session_state["password"] == "DausVTMS2026": 
             st.session_state["password_correct"] = True
-            del st.session_state["password"]  # padam password dari session untuk keselamatan
+            del st.session_state["password"]
         else:
             st.session_state["password_correct"] = False
 
@@ -30,66 +29,141 @@ def check_password():
     else:
         return True
 
-# Berhenti di sini jika password belum dimasukkan atau salah
 if not check_password():
     st.stop()
 
-# --- 2. PENGURUSAN TEMPLATE ---
+# --- 1. PENGURUSAN TEMPLATE ---
 TEMPLATE_FILE = 'templates.json'
-TAMBAHAN_FILE = 'templates_tambahan.json'
+TAMBAHAN_FILE = 'templates_tambahan.json' # Fail simpanan untuk perubahan (Add/Delete)
 
 def load_templates():
+    # 1. Load default dari kod jika fail templates.json tak wujud
     defaults = {
-        "OPERATOR MAINTENANCE CHECKLIST": {
+       "MET REPORT": {
             "headers": ["NO", "ITEM / ACTIVITY", "PASS", "FAIL", "REMARK"],
             "widths": [10, 110, 15, 15, 40],
             "type": "checkbox",
             "content": [
-                ["1.0 HP Z2 TWR Workstation", ["1.1 No physical defect", "1.2 Check SN :", "1.3 Network test", "1.4 Check system health status"]],
-                ["2.0 HP Wireless Keyboard & Mouse", ["2.1 No physical defect", "2.2 Battery status/Operation check"]],
-                ["3.0 Coastwatch Dongle", ["3.1 No physical defect", "3.2 Check ID :"]],
-                ["4.0 Monitor HP P34hc G4", ["4.1 No physical defect", "4.2 Monitor 1 Check SN :", "4.3 Monitor 2 Check SN :"]],
-                ["5.0 UPS ENPLUSEVOIIX-2KTS", ["5.1 No physical defect", "5.2 Check SN :", "5.3 Check output VAC"]],
-                ["6.0 Network Switch", ["6.1 Port status check", "6.2 Cable integrity"]],
-                ["7.0 VHF Radio 1", ["7.1 Visual check", "7.2 Check SN :"]],
-                ["8.0 VHF Radio 2", ["8.1 Visual check", "8.2 Check SN :"]],
-                ["9.0 AIS Base Station", ["9.1 Signal status"]],
-                ["10.0 Radar System", ["10.1 Rotation check", "10.2 Check SN :"]],
-                ["11.0 CCTV System", ["11.1 Camera feed", "11.2 Check SN :"]],
-                ["12.0 Server Rack", ["12.1 Fan operation", "12.2 Check SN :"]],
-                ["13.0 Power Management", ["13.1 Distribution box", "13.2 Voltage reading", "13.3 Check SN:"]],
-                ["14.0 Housekeeping", ["14.1 Remove dust on cable terminal points.", "14.2 Clean workstation area."]]
+                ["1.0 Anderaa Smartguard Datalogger", ["No physical defect, no error/alarm", "Check SN :1182", "Sensor detection check", "Data Storage Capacity/Backup check"]],
+                ["2.0 AMEC Mando 303 Transponder", ["No physical defect, no error/alarm", "Transmit AIS msg8 check", "Check SN :B4K300007", "Verify data at VTS Control(Coastwatch)"]],
+                ["3.0 Vaisala PWD20 Visibility Sensor", ["No physical defect, no error/alarm", "Check SN :W4017603", "Monitor Data Output", "Inspect Cables", "Cleaning sensor"]],
+                ["4.0 Vaisala WXT536 Weather Sensor", ["No physical defect, no error/alarm", "Check SN : W4045971", "Monitor Data Output", "Inspect Cables", "Cleaning sensor"]],
+                ["5.0 Solar Panel 12V 100Watt", ["No physical defect", "Voltage Output check (Remaks voltage)", "Cleaning"]],
+                ["6.0 Phocos Solar Charger Controller", ["No physical defect, no error/alarm"]],
+                ["7.0 MSB 12V 100Ah AGM Battery", ["No physical defect", "Voltage Output check (Remarks voltage)"]],
+                ["8.0 VHF Antenna", ["No physical defect"]],
+                ["9.0 GPS Antenna", ["No physical defect"]],
+                ["10.0 Stainless Equipment Enclosure", ["No physical defect"]],
+                ["11.0 Housekeeping", ["Remove dust on cable terminals"]]
             ]
         },
-        "Installation Report": {
-            "headers": ["NO", "ITEM / ACTIVITY", "SPEC", "ACTUAL", "RESULT"],
-            "widths": [10, 75, 40, 40, 25],
+        "OPERATOR WORKSTATION REPORT": {
+            "headers": ["NO", "ITEM / ACTIVITY", "PASS", "FAIL", "REMARK"],
+            "widths": [10, 110, 15, 15, 40],
             "type": "checkbox",
             "content": [
-                ["1.0 Equipment Installation", ["Type equipment", "SN of equipment", "IP Address if available"]],
-                ["2.0 Configuration", ["2.1 IP Address setting", "2.2 Software installation", "2.3 System integration test"]]
+                ["1.0 HP Z2 TWR Workstation", ["No physical defect", "Check SN :", "Network test (Note IP in Remark)", "Check system/Windows update"]],
+                ["2.0 Monitor HP P34hc G4", ["No physical defect", "Monitor 1 Check SN :", "Monitor 2 Check SN :"]],
+                ["3.0 HP Wireless Keyboard & Mouse", ["No physical defect","Function test"]],
+                ["4.0 Coastwatch Dongle", ["No physical defect", "Check ID(*localhost 127.0.0.1 1947) :"]],
+                ["5.0 UPS ENPLUSEVOIIX-2KTS", ["No physical defect", "Check SN :", "Check output 230 VAC", "Battery test / Backup time"]],
+                ["6.0 Operator Terminal CYS1702", ["No physical defect", "Check SN :", "Network test (Note IP in Remark)", "TX/RX Check (Radio test)", "Playback voice check", "Event log record"]],
+                ["7.0 Monitor LIYAMA PROLITE", ["No physical defect", "Check SN :"]],
+                ["8.0 Headset - PLATORA", ["No physical defect"]],
+                ["9.0 Microphone PTT CYS1102", ["No physical defect", "Check SN :"]],
+                ["10.0 Foot Pedal CYS1315", ["No physical defect", "Check SN :"]],
+                ["11.0 Handset PTT CYS1313", ["No physical defect", "Check SN :"]],
+                ["12.0 Bluetooth Headset AINA", ["No physical defect", "Check ID (Note in Remark)", "Check SN:"]],
+                ["13.0 Software Check", ["Coastwatch properly installed", "Software functioning", "Receiving AIS data", "Database/Playback search test", "Check 3D GeoVS (PTP 3D only)"]],
+                ["14.0 Housekeeping", ["Remove dust on cables/fans"]]
+            ]
+        },
+        "WALL DISPLAY REPORT": {
+            "headers": ["NO", "ITEM / ACTIVITY", "PASS", "FAIL", "REMARK"],
+            "widths": [10, 110, 15, 15, 40],
+            "type": "checkbox",
+            "content": [
+                ["Displays", [f"Wall Display-{i}" for i in range(1, 16)]],
+                ["Housekeeping", ["Remove dust on cables"]]
+            ]
+        },
+        "VHF PTP FLOOR 8": {
+            "headers": ["NO", "ITEM / ACTIVITY", "PASS", "FAIL", "REMARK"],
+            "widths": [10, 110, 15, 15, 40],
+            "type": "checkbox",
+            "content": [
+                ["Passive Components", ["Antenna Omnidirectional", "Lightning protector", "Coaxial cable", "Check VSWR (Note in remark)", "VHF splitter", "VHF Combiner"]],
+                ["VHF Basestation", ["VHF 1 Check SN : 0001", "VHF 2 Check SN : 0002", "VHF 3 Check SN : 0003", "VHF 4 Check SN : 0004", "VHF 5 Check SN : 0005", "VHF 6 Check SN : 0006"]],
+                ["Network ", ["Switch Cisco Catalyst", "NTP Time Server", "Check NTP Monitoring Web", "Lease line & SDWAN Equipment"]],
+                ["Housekeeping", ["Remove dust on terminals"]]
+            ]
+        },
+        "PTP SERVER REPORT": {
+            "headers": ["NO", "ITEM / ACTIVITY", "PASS", "FAIL", "REMARK"],
+            "widths": [10, 110, 15, 15, 40],
+            "type": "checkbox",
+            "content": [
+                ["PTP PPB Servers", ["App Server VTSA SN: SGH443KXBB", "Database Server SN: SGH443KXBN", "Sensor Server SN: SGH443KX9Z", "VHF Server 1 SN: 8CJX034", "VHF Server 2 SN: 2JNX034"]],
+                ["Storage & Switch", ["SAN Switch SN: CZC4329XHM/XHP", "SAN Storage MSA SN: ACV411W1WL", "KVM LCD8500 SN: 2C4426BADY"]],
+                ["Server Tasks", ["Equipment operate without alarm", "Check system health and hardware status (CPU, RAM, disk usage)", "Check application and system logs for errors", "Check Windows update", "Verify archived data make sure 3 month previous data available", " Restart services or applications if necessary"]],
+                ["Housekeeping", ["Remove dust on terminals"]]
+            ]
+        },
+            "LPJ SERVER REPORT": {
+            "headers": ["NO", "ITEM / ACTIVITY", "PASS", "FAIL", "REMARK"],
+            "widths": [10, 110, 15, 15, 40],
+            "type": "checkbox",
+            "content": [
+                ["LPJ Servers", ["App/DB Server SN: SGH441G81Z"]],
+                ["Storage & Switch", [ "SAN Switch SN: CZC4329XF8/XHT", "SAN Storage MSA SN: ACV411W1LS", "NTP Time Server and GPS Antenna check"]],
+                ["Server Tasks", ["Equipment operate without alarm", "Check system health and hardware status (CPU, RAM, disk usage)", "Check application and system logs for errors", "Check Windows update", "Verify archived data make sure 3 month previous data available", " Restart services or applications if necessary"]],
+                ["Housekeeping", ["Remove dust on terminals"]]
+            ]
+        },
+        "INSTALLATION REPORT": {
+            "headers": ["NO", "ITEM / ACTIVITY", "PASS", "FAIL", "REMARK"],
+            "widths": [10, 110, 15, 15, 40],
+            "type": "checkbox",
+            "content": [
+                ["1. Pre-Installation", ["Site readiness", "Tools available", "Specs reviewed", "Materials verified", "Safety briefing"]],
+                ["2. Installation", ["Equipment installed", "Cabling completed", "Power connected", "Network connected", "Grounding completed"]],
+                ["3. Testing", ["System configured", "Software installed", "Functional testing", "Operating normally"]]
+            ]
+        },
+        "KEROSAKAN TEMPLATE": {
+            "headers": ["NO", "ITEM / ACTIVITY","PASS", "FAIL", "REMARK"],
+            "widths": [10, 110, 15, 15, 40],
+            "type": "checkbox",
+            "content": [
+                ["1. Inspection", ["Visual inspection", "Physical check", "Power Status"]],
+                ["2. Analysis", ["Root Cause (Hardware/Network)", "External Factors"]],
+                ["3. Action Taken", ["Repair / Replacement", "Configuration / Restoration", "System Testing"]]
             ]
         }
     }
 
+    # Cipta fail asal jika tiada (untuk rujukan sahaja)
     if not os.path.exists(TEMPLATE_FILE):
         with open(TEMPLATE_FILE, 'w') as f:
             json.dump(defaults, f, indent=4)
 
+    # 2. Keutamaan: Baca fail TAMBAHAN jika wujud (ini mengandungi Add/Delete terbaru)
     if os.path.exists(TAMBAHAN_FILE):
         with open(TAMBAHAN_FILE, 'r') as f:
             return json.load(f)
     
+    # 3. Jika fail tambahan tiada, guna defaults
     return defaults
 
 if 'all_templates' not in st.session_state:
     st.session_state['all_templates'] = load_templates()
 
 def save_templates_to_file():
+    # HANYA simpan ke fail tambahan. Fail asal (TEMPLATE_FILE) tidak akan disentuh.
     with open(TAMBAHAN_FILE, 'w') as f:
         json.dump(st.session_state['all_templates'], f, indent=4)
 
-# --- 3. DATABASE S/N ---
+# --- 2. DATABASE S/N ASAL ---
 sn_database = {
     "1.2 Check SN :": ["4CE442B8B8", "4CE442B8B7", "4CE442B8BD", "4CE442B8BB", "4CE442B8BC", "4CE442B8B9"],
     "3.2 Check ID :": ["1563220541", "75770141", "689509092", "1151380960", "2048014076", "338176953"],
@@ -101,7 +175,7 @@ sn_database = {
     "13.3 Check SN:": ["AW121390192", "AW122210344", "AW119430008"]
 }
 
-# --- 4. PROSES IMEJ & PDF CLASS ---
+# --- 3. PROSES IMEJ & PDF CLASS ---
 def process_image(img_input, target_size=(800, 600)):
     if img_input is None: return None
     try:
@@ -140,7 +214,7 @@ class VTMS_Full_Report(FPDF):
             self.set_x(35); self.set_font('Arial', 'B', 11); self.cell(50, 12, k, 1, 0, 'L')
             self.set_font('Arial', '', 11); self.cell(90, 12, v, 1, 1, 'L')
 
-# --- 5. INTERFACE ---
+# --- 4. INTERFACE ---
 st.set_page_config(page_title="VTMS Reporting System", layout="wide")
 
 with st.sidebar:
@@ -178,6 +252,7 @@ with st.sidebar:
         st.divider()
         st.subheader("Manage Tasks")
         target_sec = st.selectbox("Select Target Section", sec_names)
+        
         current_tasks = []
         for s in st.session_state['all_templates'][selected_template]["content"]:
             if s[0] == target_sec: current_tasks = s[1]; break
@@ -224,6 +299,7 @@ for sec_idx, (sec, tasks) in enumerate(config["content"]):
     with st.expander(sec, expanded=True):
         for t_idx, t in enumerate(tasks):
             u_key = f"{sec_idx}_{t_idx}"
+            
             if config["type"] == "technical":
                 c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
                 c1.write(f"**{t}**")
@@ -241,7 +317,7 @@ for sec_idx, (sec, tasks) in enumerate(config["content"]):
                     rem = c3.text_input("Remarks", key=f"rem_{u_key}")
                 checklist_results.append({"task": t, "res": res, "com": rem})
 
-# --- SUMMARY & EVIDENCE ---
+# --- SUMMARY, EVIDENCE & SIG ---
 if 'issue_list' not in st.session_state: st.session_state['issue_list'] = []
 st.divider(); st.header("⚠️ SUMMARY & ISSUES")
 for i, item in enumerate(st.session_state['issue_list']):
@@ -263,10 +339,10 @@ if u_files:
 
 st.divider(); st.header("✍️ APPROVAL")
 ca, cb = st.columns(2)
-with ca: st.write("Prepared By:"); sig1 = st_canvas(stroke_width=2, height=150, width=300, key="sig1", background_color="#eee")
-with cb: st.write("Verified By:"); sig2 = st_canvas(stroke_width=2, height=150, width=300, key="sig2", background_color="#eee")
+with ca: st.write("Prepared By:"); sig1 = st_canvas(stroke_width=2, height=150, width=300, key="sig1", background_color="#ffffff")
+with cb: st.write("Verified By:"); sig2 = st_canvas(stroke_width=2, height=150, width=300, key="sig2", background_color="#ffffff")
 
-# --- 6. PDF GENERATION ---
+# --- 5. PDF GENERATION ---
 if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=True):
     p_img, v_img = process_image(sig1.image_data), process_image(sig2.image_data)
     if not p_img or not v_img: st.error("Please provide both signatures!")
@@ -278,15 +354,20 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
 
         pdf.cover_page({"owner":sys_owner, "ref":proj_ref, "title":selected_template, "loc":loc, "id":doc_id, "dt":report_dt}, logo_path=l_path)
         
-        # --- 1.0 TABLE OF CONTENTS ---
+# --- 1.0 TABLE OF CONTENTS ---
         pdf.add_page()
+        # Set Bold untuk tajuk utama sahaja
         pdf.set_font('Arial', 'B', 14) 
-        pdf.cell(0, 10, "TABLE OF CONTENTS", 0, 1); pdf.ln(5)
+        pdf.cell(0, 10, "TABLE OF CONTENTS", 0, 1)
+        pdf.ln(5)
+
+        # Set Normal untuk senarai di bawahnya
         pdf.set_font('Arial', '', 10.5) 
         for n, t, p in [("2.0", "DETAILS / CHECKLIST", 3), ("3.0", "SUMMARY & ISSUES", 4), ("4.0", "APPROVAL", 5), ("5.0", "ATTACHMENTS", 6)]:
-            pdf.cell(10, 10, n, 0, 0); pdf.cell(145, 10, t, 0, 0); pdf.cell(0, 10, "Page " + str(p), 0, 1, 'R')
+            pdf.cell(10, 10, n, 0, 0)
+            pdf.cell(145, 10, t, 0, 0)
+            pdf.cell(0, 10, "Page " + str(p), 0, 1, 'R')
 
-        # --- 2.0 DETAILS ---
         pdf.add_page(); pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "2.0    DETAILS / CHECKLIST", 0, 1)
         h_l, w_l = config["headers"], config["widths"]
         pdf.set_font('Arial', 'B', 8); pdf.set_fill_color(230, 230, 230)
@@ -304,7 +385,8 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
                 pdf.cell(sum(w_l), 7, f" {row['task']}", 1, 1, 'L', 1)
             else:
                 pdf.set_font('Arial', '', 7)
-                pdf.cell(w_l[0], 6, str(cnt), 1, 0, 'C'); pdf.cell(w_l[1], 6, f" {row['task']}", 1, 0, 'L')
+                pdf.cell(w_l[0], 6, str(cnt), 1, 0, 'C')
+                pdf.cell(w_l[1], 6, f" {row['task']}", 1, 0, 'L')
                 if config["type"] == "technical":
                     pdf.cell(w_l[2], 6, str(row.get('spec','-')), 1, 0, 'C')
                     pdf.cell(w_l[3], 6, str(row.get('actual','-')), 1, 0, 'C')
@@ -315,7 +397,6 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
                     pdf.cell(w_l[4], 6, f" {row.get('com','')}", 1, 1, 'L')
                 cnt += 1
 
-        # --- 3.0 SUMMARY ---
         pdf.add_page(); pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "3.0    SUMMARY & ISSUES", 0, 1)
         pdf.set_font('Arial', 'B', 9); pdf.set_fill_color(230, 230, 230)
         pdf.cell(15, 10, "NO", 1, 0, 'C', 1); pdf.cell(85, 10, "SUMMARY / ISSUES", 1, 0, 'C', 1); pdf.cell(90, 10, "REMARKS", 1, 1, 'C', 1)
@@ -323,23 +404,55 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
         for idx, item in enumerate(st.session_state['issue_list']):
             pdf.cell(15, 10, str(idx+1), 1, 0, 'C'); pdf.cell(85, 10, item['issue'], 1, 0, 'L'); pdf.cell(90, 10, item['Remarks'], 1, 1, 'L')
 
-        # --- 4.0 APPROVAL ---
         pdf.add_page(); pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "4.0    APPROVAL & ACCEPTANCE", 0, 1); pdf.ln(5)
         pdf.set_font('Arial', 'B', 10); pdf.cell(0, 7, "Confirmation Statement:", 0, 1)
         pdf.set_font('Arial', '', 10)
-        stmt = "The undersigned hereby confirms that the maintenance and inspection services detailed in this report have been carried out..."
+        stmt = "The undersigned hereby confirms that the works described in this report have been carried out in accordance with the agreed scope, specifications, and requirements. All findings and remarks have been documented and verified accordingly."
         pdf.multi_cell(0, 6, stmt, 0, 'L')
+        
         p_img.save("p.png"); v_img.save("v.png")
         pdf.image("p.png", x=30, y=pdf.get_y()+10, w=50); pdf.image("v.png", x=120, y=pdf.get_y()+10, w=50)
         pdf.ln(45); pdf.cell(95, 8, f"PREPARED BY: {tech_name}", 0, 0, 'L'); pdf.cell(95, 8, f"VERIFIED BY: {client_name}", 0, 1, 'L')
 
-        # --- 5.0 ATTACHMENTS ---
         if evidence_data:
-            pdf.add_page(); pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "5.0    ATTACHMENTS", 0, 1)
+            pdf.add_page()
+            pdf.set_font('Arial', 'B', 12)
+            pdf.cell(0, 10, "5.0    ATTACHMENTS", 0, 1)
+            
+            # Tetapan Grid (2 imej sebaris, maks 4 imej semuka surat)
+            x_start = 20
+            y_start = 40
+            curr_y = y_start
+            
             for i, ev in enumerate(evidence_data):
-                img = ImageOps.fit(Image.open(ev['file']), (800, 600)); img.save("tmp_ev.jpg")
-                pdf.image("tmp_ev.jpg", x=20 if i%2==0 else 110, y=40 if (i//2)%2==0 else 120, w=80)
-                os.remove("tmp_ev.jpg")
+                # 1. Buka muka surat baru selepas setiap 4 gambar
+                if i > 0 and i % 4 == 0:
+                    pdf.add_page()
+                    curr_y = y_start 
+
+                # 2. Tentukan X: Imej genap di kiri (20), ganjil di kanan (110)
+                x_pos = x_start if i % 2 == 0 else 110
+                
+                # 3. Proses imej (Gunakan Pillow untuk resize)
+                img = ImageOps.fit(Image.open(ev['file']), (800, 600))
+                temp_filename = f"tmp_ev_{i}.jpg" # Nama unik untuk setiap fail sementara
+                img.save(temp_filename)
+                
+                # 4. Masukkan imej ke PDF
+                pdf.image(temp_filename, x=x_pos, y=curr_y, w=80)
+                
+                # 5. Masukkan Kapsyen/Label di bawah imej
+                pdf.set_xy(x_pos, curr_y + 62)
+                pdf.set_font('Arial', 'I', 8)
+                pdf.cell(80, 5, ev['label'], 0, 0, 'C')
+                
+                # 6. Update koordinat Y: Turunkan baris selepas imej kedua diletakkan
+                if i % 2 != 0:
+                    curr_y += 75 # Jarak antara baris atas dan bawah
+                
+                # Padam fail sementara
+                if os.path.exists(temp_filename):
+                    os.remove(temp_filename)
 
         st.download_button("📥 DOWNLOAD REPORT", pdf.output(dest='S').encode('latin-1'), f"VTMS_REPORT.pdf", "application/pdf", use_container_width=True)
         for f in ["p.png", "v.png", "temp_logo.png"]: 
