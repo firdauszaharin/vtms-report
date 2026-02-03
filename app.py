@@ -551,10 +551,16 @@ if st.button("🚀 GENERATE FINAL REPORT",type="primary", use_container_width=Tr
         else:
             final_bytes = bytes(pdf_output)
 
+        # Membersihkan nama fail (tukar ruang kosong kepada underscore)
+        clean_filename = selected_template.replace(" ", "_")
+        date_str = datetime.now().strftime('%d%m%Y')
+
         st.download_button(
             label="📥 DOWNLOAD REPORT",
             data=final_bytes,
-            file_name=f"VTMS_REPORT_{datetime.now().strftime('%d%m%Y')}.pdf",
+            # Sekarang nama fail akan jadi cth: MET_REPORT_03022026.pdf
+            file_name=f"{clean_filename}_{date_str}.pdf",
             mime="application/pdf",
             use_container_width=True
         )
+
