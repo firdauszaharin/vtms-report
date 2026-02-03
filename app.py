@@ -465,27 +465,34 @@ if st.button("🚀 GENERATE FINAL REPORT",type="primary", use_container_width=Tr
         p_img.save("p.png")
         v_img.save("v.png")
 
-        # Tentukan posisi Y untuk tanda tangan (selepas kenyataan pengesahan)
+        # Tentukan posisi Y untuk tanda tangan
         y_sig_start = pdf.get_y() + 10 
         
-        # Letak tanda tangan (Pastikan koordinat X selari dengan teks di bawah)
-        pdf.image("p.png", x=40, y=y_sig_start, w=40)  # Tanda tangan Prepared By
-        pdf.image("v.png", x=130, y=y_sig_start, w=40) # Tanda tangan Verified By
+        # 1. Letak tanda tangan
+        pdf.image("p.png", x=40, y=y_sig_start, w=40)
+        pdf.image("v.png", x=130, y=y_sig_start, w=40)
         
-        # Jarakkan ke bawah untuk teks nama (Turunkan Y sejauh 25-30mm dari tanda tangan)
+        # 2. Letak teks nama dan timestamp di bawah tanda tangan
         pdf.set_y(y_sig_start + 25) 
         
-        pdf.set_font('Arial', 'B', 10)
-        # Kolum Kiri (Prepared By)
-        pdf.set_x(15) 
-        # Kita guna lebar 90mm dan 'C' untuk center teks dalam ruang tersebut
-        pdf.cell(90, 8, f"PREPARED BY: {tech_name}", 0, 0, 'C') 
+        # Ambil masa semasa untuk rekod penjanaan (Date & Time)
+        gen_timestamp = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         
-        # Kolum Kanan (Verified By)
-        pdf.set_x(105) 
+        # --- Baris Nama ---
+        pdf.set_font('Arial', 'B', 10)
+        pdf.set_x(15)
+        pdf.cell(90, 8, f"PREPARED BY: {tech_name}", 0, 0, 'C') 
+        pdf.set_x(105)
         pdf.cell(90, 8, f"VERIFIED BY: {client_name}", 0, 1, 'C')
 
-        # Cleanup imej sementara
+        # --- Baris Timestamp (Font lebih kecil dan Italic) ---
+        pdf.set_font('Arial', 'I', 8)
+        pdf.set_x(15)
+        pdf.cell(90, 5, f"Date/Time: {gen_timestamp}", 0, 0, 'C')
+        pdf.set_x(105)
+        pdf.cell(90, 5, f"Date/Time: {gen_timestamp}", 0, 1, 'C')
+
+        # Cleanup
         if os.path.exists("p.png"): os.remove("p.png")
         if os.path.exists("v.png"): os.remove("v.png")
 
@@ -563,4 +570,3 @@ if st.button("🚀 GENERATE FINAL REPORT",type="primary", use_container_width=Tr
             mime="application/pdf",
             use_container_width=True
         )
-
