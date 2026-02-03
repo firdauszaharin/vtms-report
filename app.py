@@ -177,18 +177,37 @@ sn_database = {
 
 # --- 3. PROSES IMEJ & PDF CLASS ---
 def process_image(img_input, target_size=(800, 600)):
+    """Fungsi untuk memproses gambar Evidence"""
     if img_input is None: return None
     try:
-        if isinstance(img_input, np.ndarray):
-            if not np.any(img_input[:, :, 3] > 0): return None
-            img = Image.fromarray(img_input.astype('uint8')).convert("RGBA")
-        else:
-            img = Image.open(img_input).convert("RGBA")
-        white_bg = Image.new("RGB", img.size, (255, 255, 255))
-        white_bg.paste(img, mask=img.split()[3])
-        return ImageOps.fit(white_bg, target_size, Image.Resampling.LANCZOS)
-    except: return None
+        img = Image.open(img_input).convert("RGBA")
+        background = Image.new("RGB", target_size, (255, 255, 255))
+        img.thumbnail(target_size, Image.Resampling.LANCZOS)
+        offset = ((target_size[0] - img.size[0]) // 2, (target_size[1] - img.size[1]) // 2)
+        background.paste(img, offset, mask=img.split()[3] if img.mode == 'RGBA' else None)
+        return background
+    except Exception as e:
+        st.error(f"Error processing image: {e}")
+        return None
 
+def process_signature(img_input):
+    """Menukar data kanvas kepada imej PIL yang bersih"""
+    if img_input is not None:
+        try:
+            # Pastikan img_input adalah numpy array dari st_canvas
+            img = Image.fromarray(img_input.astype('uint8'))
+            alpha = img.split()[-1]
+            bbox = alpha.getbbox()
+            if bbox:
+                img = img.crop(bbox)
+            
+            new_img = Image.new("RGB", img.size, (255, 255, 255))
+            new_img.paste(img, mask=img.split()[-1])
+            return new_img
+        except Exception as e:
+            # Jika img_input bukan array atau ralat lain
+            return None
+    return None
 class VTMS_Full_Report(FPDF):
     def __init__(self, header_title=""):
         super().__init__()
@@ -349,19 +368,19 @@ ca, cb = st.columns(2)
 with ca: st.write("Prepared By:"); sig1 = st_canvas(stroke_width=2, height=150, width=300, key="sig1", background_color="#ffffff")
 with cb: st.write("Verified By:"); sig2 = st_canvas(stroke_width=2, height=150, width=300, key="sig2", background_color="#ffffff")
 
-# --- 5. PDF GENERATION ---#
-if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=True):
-    p_img, v_img = process_image(sig1.image_data), process_image(sig2.image_data)
+# --- 5. PDF GENERATION ---
+if st.button("🚀 GENERATE FINAL REPORT",type="primary", use_container_width=True):
+    # Ambil data imej dari canvas
+    p_img = process_signature(sig1.image_data)
+    v_img = process_signature(sig2.image_data)
     
-    if not p_img or not v_img: 
-        st.error("Please provide both signatures!")
+    if p_img is None or v_img is None:
+        st.error("Sila turunkan tanda tangan terlebih dahulu!")
     else:
         pdf = VTMS_Full_Report(header_title=header_txt)
-        
-        # Gunakan path logo yang tetap
         logo_to_use = FIXED_LOGO_PATH if os.path.exists(FIXED_LOGO_PATH) else None
 
-        # Cover Page
+        # 1. Cover Page
         pdf.cover_page({
             "owner": sys_owner, 
             "ref": proj_ref, 
@@ -371,21 +390,27 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
             "dt": report_dt
         }, logo_path=logo_to_use)
         
-# --- 1.0 TABLE OF CONTENTS ---
+        # 2. Table of Contents
         pdf.add_page()
-        # Set Bold untuk tajuk utama sahaja
         pdf.set_font('Arial', 'B', 14) 
         pdf.cell(0, 10, "TABLE OF CONTENTS", 0, 1)
         pdf.ln(5)
+        pdf.set_font('Arial', '', 11) 
+        # Manual TOC mapping (kerana kita guna fpdf lama)
+        toc_items = [
+            ("2.0", "DETAILS / CHECKLIST"),
+            ("3.0", "SUMMARY & ISSUES"),
+            ("4.0", "APPROVAL"),
+            ("5.0", "ATTACHMENTS")
+        ]
+        for n, t in toc_items:
+            pdf.cell(10, 10, n, 0, 0)      # Cetak No Seksyen (cth: 2.0)
+            pdf.cell(0, 10, t, 0, 1)       # Cetak Tajuk Seksyen (cth: DETAILS / CHECKLIST)
+        
 
-        # Set Normal untuk senarai di bawahnya
-        pdf.set_font('Arial', '', 10.5) 
-        for n, t, p in [("2.0", "DETAILS / CHECKLIST", 3), ("3.0", "SUMMARY & ISSUES", 4), ("4.0", "APPROVAL", 5), ("5.0", "ATTACHMENTS", 6)]:
-            pdf.cell(10, 10, n, 0, 0)
-            pdf.cell(145, 10, t, 0, 0)
-            pdf.cell(0, 10, "Page " + str(p), 0, 1, 'R')
-
-        pdf.add_page(); pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "2.0    DETAILS / CHECKLIST", 0, 1)
+        # 3. Details / Checklist
+        pdf.add_page()
+        pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "2.0    DETAILS / CHECKLIST", 0, 1)
         h_l, w_l = config["headers"], config["widths"]
         pdf.set_font('Arial', 'B', 8); pdf.set_fill_color(230, 230, 230)
         for i, h in enumerate(h_l): pdf.cell(w_l[i], 8, h, 1, 0, 'C', 1)
@@ -393,7 +418,7 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
 
         cnt = 1
         for row in checklist_results:
-            if pdf.get_y() > 265:
+            if pdf.get_y() > 260: # Threshold untuk page break
                 pdf.add_page()
                 for i, h in enumerate(h_l): pdf.cell(w_l[i], 8, h, 1, 0, 'C', 1)
                 pdf.ln()
@@ -414,63 +439,122 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
                     pdf.cell(w_l[4], 6, f" {row.get('com','')}", 1, 1, 'L')
                 cnt += 1
 
-        pdf.add_page(); pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "3.0    SUMMARY & ISSUES", 0, 1)
+        # 4. Summary & Issues
+        pdf.add_page()
+        pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "3.0    SUMMARY & ISSUES", 0, 1)
         pdf.set_font('Arial', 'B', 9); pdf.set_fill_color(230, 230, 230)
         pdf.cell(15, 10, "NO", 1, 0, 'C', 1); pdf.cell(85, 10, "SUMMARY / ISSUES", 1, 0, 'C', 1); pdf.cell(90, 10, "REMARKS", 1, 1, 'C', 1)
         pdf.set_font('Arial', '', 8)
         for idx, item in enumerate(st.session_state['issue_list']):
             pdf.cell(15, 10, str(idx+1), 1, 0, 'C'); pdf.cell(85, 10, item['issue'], 1, 0, 'L'); pdf.cell(90, 10, item['Remarks'], 1, 1, 'L')
 
-        pdf.add_page(); pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "4.0    APPROVAL & ACCEPTANCE", 0, 1); pdf.ln(5)
-        pdf.set_font('Arial', 'B', 10); pdf.cell(0, 7, "Confirmation Statement:", 0, 1)
+        # 5. Approval & Acceptance
+        pdf.add_page()
+        pdf.set_font('Arial', 'B', 12)
+        pdf.cell(0, 10, "4.0    APPROVAL & ACCEPTANCE", 0, 1)
+        pdf.ln(5)
+
+        pdf.set_font('Arial', 'B', 10)
+        pdf.cell(0, 7, "Confirmation Statement:", 0, 1)
+        
         pdf.set_font('Arial', '', 10)
         stmt = "The undersigned hereby confirms that the works described in this report have been carried out in accordance with the agreed scope, specifications, and requirements. All findings and remarks have been documented and verified accordingly."
         pdf.multi_cell(0, 6, stmt, 0, 'L')
         
-        p_img.save("p.png"); v_img.save("v.png")
-        pdf.image("p.png", x=30, y=pdf.get_y()+10, w=50); pdf.image("v.png", x=120, y=pdf.get_y()+10, w=50)
-        pdf.ln(45); pdf.cell(95, 8, f"PREPARED BY: {tech_name}", 0, 0, 'L'); pdf.cell(95, 8, f"VERIFIED BY: {client_name}", 0, 1, 'L')
+        # Simpan imej sementara
+        p_img.save("p.png")
+        v_img.save("v.png")
 
+        # Tentukan posisi Y untuk tanda tangan (selepas kenyataan pengesahan)
+        y_sig_start = pdf.get_y() + 10 
+        
+        # Letak tanda tangan (Pastikan koordinat X selari dengan teks di bawah)
+        pdf.image("p.png", x=40, y=y_sig_start, w=40)  # Tanda tangan Prepared By
+        pdf.image("v.png", x=130, y=y_sig_start, w=40) # Tanda tangan Verified By
+        
+        # Jarakkan ke bawah untuk teks nama (Turunkan Y sejauh 25-30mm dari tanda tangan)
+        pdf.set_y(y_sig_start + 25) 
+        
+        pdf.set_font('Arial', 'B', 10)
+        # Kolum Kiri (Prepared By)
+        pdf.set_x(15) 
+        # Kita guna lebar 90mm dan 'C' untuk center teks dalam ruang tersebut
+        pdf.cell(90, 8, f"PREPARED BY: {tech_name}", 0, 0, 'C') 
+        
+        # Kolum Kanan (Verified By)
+        pdf.set_x(105) 
+        pdf.cell(90, 8, f"VERIFIED BY: {client_name}", 0, 1, 'C')
+
+        # Cleanup imej sementara
+        if os.path.exists("p.png"): os.remove("p.png")
+        if os.path.exists("v.png"): os.remove("v.png")
+
+        # --- 6.0 ATTACHMENTS (FORMAT JADUAL BERSEMPADAN) ---
         if evidence_data:
             pdf.add_page()
             pdf.set_font('Arial', 'B', 12)
             pdf.cell(0, 10, "5.0    ATTACHMENTS", 0, 1)
+            pdf.ln(5)
             
-            # Tetapan Grid (2 imej sebaris, maks 4 imej semuka surat)
-            x_start = 20
-            y_start = 40
-            curr_y = y_start
+            # --- TETAPAN AUTOMATIK (A4 = 210mm lebar) ---
+            box_w = 90               # 1. Tentukan lebar kotak yang anda mahu
+            box_h = 100               # 2. Tentukan tinggi kotak yang anda mahu
+            gap = 5                 # 3. Jarak (gap) antara kotak kiri dan kanan
+            
+            # Kira margin supaya center: (Lebar Kertas - (2 kotak + 1 gap)) / 2
+            margin_x = (210 - (2 * box_w + gap)) / 2
+            
+            col_x = [margin_x, margin_x + box_w + gap] # Koordinat X automatik
+            row_y = [35, 35 + box_h + 5]              # Koordinat Y (baris 1 & 2)
             
             for i, ev in enumerate(evidence_data):
-                # 1. Buka muka surat baru selepas setiap 4 gambar
+                # Tambah muka surat baru selepas setiap 4 keping gambar
                 if i > 0 and i % 4 == 0:
                     pdf.add_page()
-                    curr_y = y_start 
+                
+                pos = i % 4
+                x, y = col_x[pos % 2], row_y[pos // 2]
+                
+                # 1. LUKIS BORDER KOTAK (Jadual)
+                pdf.set_draw_color(0, 0, 0)
+                pdf.set_line_width(0.3)
+                pdf.rect(x, y, box_w, box_h)
+                
+                # 2. MASUKKAN GAMBAR
+                processed_img = process_image(ev['file'])
+                if processed_img:
+                    temp_ev = f"tmp_ev_{i}.jpg"
+                    processed_img.save(temp_ev, "JPEG", quality=95)
+                    
+                    # Gambar diletakkan di dalam kotak dengan padding sedikit
+                    # Saiz gambar dikecilkan sedikit (85x65) supaya muat ruang teks di bawah
+                    pdf.image(temp_ev, x=x+3.75, y=y+5, w=85, h=65)
+                    
+                    # 3. GARISAN PEMISAH (Antara Gambar & Kapsyen)
+                    pdf.line(x, y + 90, x + box_w, y + 90)
+                    
+                    # 4. TAJUK/KAPSYEN DI BAWAH GAMBAR
+                    pdf.set_xy(x, y + 90)
+                    pdf.set_font('Arial', '', 10)
+                    # Multi_cell supaya teks panjang automatik ke baris baru dalam kotak
+                    pdf.multi_cell(box_w, 7, ev['label'], 0, 'C')
+                    
+                    if os.path.exists(temp_ev): 
+                        os.remove(temp_ev)
 
-                # 2. Tentukan X: Imej genap di kiri (20), ganjil di kanan (110)
-                x_pos = x_start if i % 2 == 0 else 110
-                
-                # 3. Proses imej (Gunakan Pillow untuk resize)
-                img = ImageOps.fit(Image.open(ev['file']), (800, 600))
-                temp_filename = f"tmp_ev_{i}.jpg" # Nama unik untuk setiap fail sementara
-                img.save(temp_filename)
-                
-                # 4. Masukkan imej ke PDF
-                pdf.image(temp_filename, x=x_pos, y=curr_y, w=80)
-                
-                # 5. Masukkan Kapsyen/Label di bawah imej
-                pdf.set_xy(x_pos, curr_y + 62)
-                pdf.set_font('Arial', 'I', 8)
-                pdf.cell(80, 5, ev['label'], 0, 0, 'C')
-                
-                # 6. Update koordinat Y: Turunkan baris selepas imej kedua diletakkan
-                if i % 2 != 0:
-                    curr_y += 75 # Jarak antara baris atas dan bawah
-                
-                # Padam fail sementara
-                if os.path.exists(temp_filename):
-                    os.remove(temp_filename)
+        # --- LANGKAH 7: FINAL DOWNLOAD HANDLING ---
+        pdf_output = pdf.output(dest='S')
+        
+        # Selesaikan masalah bytearray vs string
+        if isinstance(pdf_output, str):
+            final_bytes = pdf_output.encode('latin-1')
+        else:
+            final_bytes = bytes(pdf_output)
 
-        st.download_button("📥 DOWNLOAD REPORT", pdf.output(dest='S').encode('latin-1'), f"VTMS_REPORT.pdf", "application/pdf", use_container_width=True)
-        for f in ["p.png", "v.png", "temp_logo.png"]: 
-            if os.path.exists(f): os.remove(f)
+        st.download_button(
+            label="📥 DOWNLOAD REPORT",
+            data=final_bytes,
+            file_name=f"VTMS_REPORT_{datetime.now().strftime('%d%m%Y')}.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
