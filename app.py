@@ -552,7 +552,7 @@ if st.button("🚀 GENERATE FINAL REPORT",type="primary", use_container_width=Tr
                     if os.path.exists(temp_ev): 
                         os.remove(temp_ev)
 
-        # --- LANGKAH 7: PREVIEW & FINAL DOWNLOAD HANDLING ---
+        # --- LANGKAH 7: FINAL DOWNLOAD HANDLING ---
         pdf_output = pdf.output(dest='S')
         
         # Selesaikan masalah bytearray vs string
@@ -561,32 +561,16 @@ if st.button("🚀 GENERATE FINAL REPORT",type="primary", use_container_width=Tr
         else:
             final_bytes = bytes(pdf_output)
 
-        # 1. Pastikan Waktu Malaysia untuk Nama Fail (Sama dengan dalam report)
-        myt_now = datetime.now(timezone.utc) + timedelta(hours=8)
-        date_str = myt_now.strftime('%d%m%Y') 
-
-        # 2. Bersihkan Nama Template (Tukar space ke underscore)
+        # Membersihkan nama fail (tukar ruang kosong kepada underscore)
         clean_filename = selected_template.replace(" ", "_")
+        date_str = datetime.now().strftime('%d%m%Y')
 
-        # 3. PAPARKAN PREVIEW (Review sebelum download)
-        st.divider()
-        st.subheader(f"👁️ REVIEW REPORT: {selected_template}")
-        
-        import base64
-        # Convert PDF bytes ke base64 string untuk paparan iframe
-        base64_pdf = base64.b64encode(final_bytes).decode('utf-8')
-        pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="800" type="application/pdf"></iframe>'
-        
-        # Papar preview
-        st.markdown(pdf_display, unsafe_allow_html=True)
-        
-        st.info("💡 Sila semak preview di atas. Jika segalanya betul, klik butang download di bawah.")
-
-        # 4. BUTANG DOWNLOAD (Dinamik mengikut Template & Tarikh)
         st.download_button(
-            label=f"📥 DOWNLOAD {selected_template} ({date_str})",
+            label="📥 DOWNLOAD REPORT",
             data=final_bytes,
+            # Sekarang nama fail akan jadi cth: MET_REPORT_03022026.pdf
             file_name=f"{clean_filename}_{date_str}.pdf",
             mime="application/pdf",
             use_container_width=True
         )
+
