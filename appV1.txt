@@ -570,3 +570,4 @@ if st.button("🚀 GENERATE FINAL REPORT",type="primary", use_container_width=Tr
             mime="application/pdf",
             use_container_width=True
         )
+
