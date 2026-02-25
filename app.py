@@ -106,7 +106,7 @@ def load_templates():
                 ["PTP PPB SERVER", ["App Server VTSA SN: SGH443KXBB", "Database Server SN: SGH443KXBN", "Sensor Server SN: SGH443KX9Z", "VHF Server 1 SN: 8CJX034", "VHF Server 2 SN: 2JNX034"]],
                 ["STORAGE & SWITCH", ["SAN Switch SN: CZC4329XHM/XHP", "SAN Storage MSA SN: ACV411W1WL", "KVM LCD8500 SN: 2C4426BADY"]],
                 ["SERVER TASKS", ["Equipment operate without alarm", "Check system health and hardware status (CPU, RAM, disk usage)", "Check application and system logs for errors", "Check Windows update", "Verify archived data make sure 3 month previous data available", " Restart services or applications if necessary"]],
-                ["CHECK SERVER PERFORMANCE", ["CPU usage (App Server VTSA)","CPU usage (Database Server)","CPU usage (Sensor Server)","RAM usage (App Server VTSA)","RAM usage (Database Server)","RAM usage (Sensor Server)","Windows update (App Server VTSA)","Windows update (Database Server)","Windows update (Sensor Server)"]]
+                ["CHECK SERVER PERFORMANCE", ["CPU usage (App Server VTSA)", "CPU usage (Database Server)", "CPU usage (Sensor Server)", "RAM usage (App Server VTSA)", "RAM usage (Database Server)", "RAM usage (Sensor Server)","Windows update (App Server VTSA)","Windows update (Database Server)","Windows update (Sensor Server)"]],
                 ["HOUSEKEEPING", ["Remove dust on terminals"]]
             ]
         },
@@ -118,7 +118,7 @@ def load_templates():
                 ["LPJ SERVER", ["App/DB Server SN: SGH441G81Z"]],
                 ["STORAGE & SWITCH", [ "SAN Switch SN: CZC4329XF8/XHT", "SAN Storage MSA SN: ACV411W1LS", "NTP Time Server and GPS Antenna check"]],
                 ["SERVER TASKS", ["Equipment operate without alarm", "Check system health and hardware status (CPU, RAM, disk usage)", "Check application and system logs for errors", "Check Windows update", "Verify archived data make sure 3 month previous data available", " Restart services or applications if necessary"]],
-                ["CHECK SERVER PERFORMANCE", ["CPU usage","RAM usage","Windows update"]]
+                ["CHECK SERVER PERFORMANCE", ["CPU usage","RAM usage","Windows update"]],
                 ["HOUSEKEEPING", ["Remove dust on terminals"]]
             ]
         },
@@ -521,4 +521,5 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
             mime="application/pdf",
             use_container_width=True
         )
+
 
