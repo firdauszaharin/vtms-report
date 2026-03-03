@@ -408,7 +408,7 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
             pdf.cell(10, 10, n, 0, 0)
             pdf.cell(0, 10, t, 0, 1)
 
-       # --- 3. Checklist (LOGIK BARU: AUTO-WRAP & FIXED BORDER) ---
+       # --- 3. Checklist (LOGIK FIX: KOTAK MANTAP & TEXT CENTERED) ---
         pdf.add_page()
         pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "2.0    DETAILS / CHECKLIST", 0, 1)
         
@@ -426,18 +426,17 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
                 cnt = 1
             else:
                 pdf.set_font('Arial', '', 7)
-                
-                # 1. Ambil teks Remark
                 txt_remark = str(row.get('com', ''))
                 
-                # 2. Kira berapa baris teks Remark tu perlukan (guna split_only=True)
-                # w_l[4] adalah lebar column Remark (55)
-                line_count = len(pdf.multi_cell(w_l[4], 5, txt_remark, split_only=True))
+                # Kira dulu berapa line Remark ni (Lebar Remark biasanya w_l[4] = 40)
+                # Kita guna simulasi split_only=True
+                lines = pdf.multi_cell(w_l[4], 5, txt_remark, split_only=True)
+                line_count = len(lines)
                 
-                # 3. Tentukan tinggi row (Minima 8, atau ikut jumlah baris teks)
+                # Tinggi row mestilah cukup untuk semua line (minima 8mm)
                 row_h = max(8, line_count * 5)
-                
-                # 4. Check jika cukup ruang dalam page, jika tak, add page baru
+
+                # Cek cukup ruang ke tak
                 if pdf.get_y() + row_h > 270:
                     pdf.add_page()
                     pdf.set_font('Arial', 'B', 8); pdf.set_fill_color(230, 230, 230)
@@ -445,28 +444,40 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
                     pdf.ln()
                     pdf.set_font('Arial', '', 7)
 
-                # 5. Lukis Column 1, 2, 3, 4 (Guna Cell biasa dengan tinggi row_h)
-                x_start = pdf.get_x()
-                y_start = pdf.get_y()
-                
+                # --- TEKNIK DRAWING BORDER ---
+                # Simpan posisi awal (X, Y)
+                curr_x = pdf.get_x()
+                curr_y = pdf.get_y()
+
+                # Lukis kotak background/border untuk semua column dulu
+                # Column 1: No
                 pdf.cell(w_l[0], row_h, str(cnt), 1, 0, 'C')
+                # Column 2: Item
                 pdf.cell(w_l[1], row_h, f" {row['task']}", 1, 0, 'L')
                 
                 if config.get("type") == "technical":
                     pdf.cell(w_l[2], row_h, row.get('spec','-'), 1, 0, 'C')
                     pdf.cell(w_l[3], row_h, row.get('actual','-'), 1, 0, 'C')
-                    pdf.cell(w_l[4], row_h, row['res'], 1, 1, 'C')
+                    pdf.cell(w_l[4], row_h, row['res'], 1, 0, 'C') # Guna 0 supaya pointer tak turun dulu
                 else:
+                    # Column 3: Pass
                     pdf.cell(w_l[2], row_h, "X" if row['res'] == "PASS" else "", 1, 0, 'C')
+                    # Column 4: Fail
                     pdf.cell(w_l[3], row_h, "X" if row['res'] == "FAIL" else "", 1, 0, 'C')
                     
-                    # 6. Column terakhir (REMARK) guna multi_cell untuk wrap
-                    # Kita guna posisi X dan Y supaya border Remark cantik
-                    pdf.multi_cell(w_l[4], 5, txt_remark, 1, 'L')
+                    # Column 5: Remark (Multi-line)
+                    # Sebelum guna multi_cell, kita set posisi X ke hujung (start column remark)
+                    pdf.set_xy(curr_x + w_l[0] + w_l[1] + w_l[2] + w_l[3], curr_y)
                     
-                    # 7. Reset posisi pointer ke baris baru (sebab multi_cell dah gerakkan pointer ke bawah)
-                    pdf.set_xy(x_start, y_start + row_h)
-                
+                    # Kita lukis kotak border luar dulu supaya border tak putus
+                    pdf.cell(w_l[4], row_h, "", 1, 0) 
+                    
+                    # Sekarang tulis teks di dalam kotak tu (tanpa border 1, guna 0)
+                    pdf.set_xy(curr_x + w_l[0] + w_l[1] + w_l[2] + w_l[3], curr_y + (row_h - (line_count*5))/2)
+                    pdf.multi_cell(w_l[4], 5, txt_remark, 0, 'L')
+
+                # Reset posisi ke baris baru
+                pdf.set_xy(curr_x, curr_y + row_h)
                 cnt += 1
 
         # 4. Summary & Issues
@@ -551,6 +562,7 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
             mime="application/pdf",
             use_container_width=True
         )
+
 
 
 
