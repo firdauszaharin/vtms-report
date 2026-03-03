@@ -408,7 +408,7 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
             pdf.cell(10, 10, n, 0, 0)
             pdf.cell(0, 10, t, 0, 1)
 
-        # 3. Details / Checklist
+        # 3. Checklist (FIXED WRAPPING LOGIC)
         pdf.add_page()
         pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "2.0    DETAILS / CHECKLIST", 0, 1)
         h_l, w_l = config["headers"], config["widths"]
@@ -418,25 +418,48 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
 
         cnt = 1
         for row in checklist_results:
-            if pdf.get_y() > 260:
+            if pdf.get_y() > 250: # Page break safety
                 pdf.add_page()
+                pdf.set_font('Arial', 'B', 8); pdf.set_fill_color(230, 230, 230)
                 for i, h in enumerate(h_l): pdf.cell(w_l[i], 8, h, 1, 0, 'C', 1)
                 pdf.ln()
+            
             if row['res'] == "TITLE":
                 cnt = 1; pdf.set_font('Arial', 'B', 8); pdf.set_fill_color(245, 245, 245)
-                pdf.cell(sum(w_l), 7, f" {row['task']}", 1, 1, 'L', 1)
+                pdf.cell(sum(w_l), 8, f" {row['task']}", 1, 1, 'L', 1)
             else:
                 pdf.set_font('Arial', '', 7)
-                pdf.cell(w_l[0], 6, str(cnt), 1, 0, 'C')
-                pdf.cell(w_l[1], 6, f" {row['task']}", 1, 0, 'L')
-                if config["type"] == "technical":
-                    pdf.cell(w_l[2], 6, str(row.get('spec','-')), 1, 0, 'C')
-                    pdf.cell(w_l[3], 6, str(row.get('actual','-')), 1, 0, 'C')
-                    pdf.cell(w_l[4], 6, row['res'], 1, 1, 'C')
+                
+                # --- LOGIK PENTING: KIRA TINGGI BARIS ---
+                # Kita kira berapa baris diperlukan untuk Remark (col terakhir)
+                text_remark = str(row.get('com',''))
+                # multi_cell(w, h, txt, split_only=True) - mengira berapa baris tanpa melukis
+                line_count = len(pdf.multi_cell(w_l[4], 5, text_remark, split_only=True))
+                row_height = max(8, line_count * 5) # Minimum tinggi 8 unit
+                
+                curr_x = pdf.get_x()
+                curr_y = pdf.get_y()
+
+                # Lukis column 1 - 4 guna cell (ketinggian row_height)
+                pdf.cell(w_l[0], row_height, str(cnt), 1, 0, 'C')
+                pdf.cell(w_l[1], row_height, f" {row['task']}", 1, 0, 'L')
+                
+                if config.get("type") == "technical":
+                    pdf.cell(w_l[2], row_height, row.get('spec','-'), 1, 0, 'C')
+                    pdf.cell(w_l[3], row_height, row.get('actual','-'), 1, 0, 'C')
+                    pdf.cell(w_l[4], row_height, row['res'], 1, 1, 'C')
                 else:
-                    pdf.cell(w_l[2], 6, "X" if row['res'] == "PASS" else "", 1, 0, 'C')
-                    pdf.cell(w_l[3], 6, "X" if row['res'] == "FAIL" else "", 1, 0, 'C')
-                    pdf.cell(w_l[4], 6, f" {row.get('com','')}", 1, 1, 'L')
+                    pdf.cell(w_l[2], row_height, "X" if row['res'] == "PASS" else "", 1, 0, 'C')
+                    pdf.cell(w_l[3], row_height, "X" if row['res'] == "FAIL" else "", 1, 0, 'C')
+                    
+                    # Column terakhir (Remark) guna multi_cell
+                    # Simpan posisi X sebelum multi_cell
+                    last_col_x = pdf.get_x()
+                    pdf.multi_cell(w_l[4], 5, text_remark, 1, 'L') 
+                    
+                    # Set balik posisi Y ke bawah row tadi supaya tak bertindih
+                    pdf.set_xy(curr_x, curr_y + row_height)
+                
                 cnt += 1
 
         # 4. Summary & Issues
@@ -521,5 +544,6 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
             mime="application/pdf",
             use_container_width=True
         )
+
 
 
