@@ -480,14 +480,58 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
                 pdf.set_xy(curr_x, curr_y + row_h)
                 cnt += 1
 
-        # 4. Summary & Issues
+        # --- 4. Summary & Issues (LOGIK AUTO-WRAP) ---
         pdf.add_page()
         pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "3.0    SUMMARY & ISSUES", 0, 1)
+        
+        # Lebar column: NO (15), SUMMARY (85), REMARKS (90) = Total 190mm
+        w_issue = [15, 85, 90]
         pdf.set_font('Arial', 'B', 9); pdf.set_fill_color(230, 230, 230)
-        pdf.cell(15, 10, "NO", 1, 0, 'C', 1); pdf.cell(85, 10, "SUMMARY / ISSUES", 1, 0, 'C', 1); pdf.cell(90, 10, "REMARKS", 1, 1, 'C', 1)
+        pdf.cell(w_issue[0], 10, "NO", 1, 0, 'C', 1)
+        pdf.cell(w_issue[1], 10, "SUMMARY / ISSUES", 1, 0, 'C', 1)
+        pdf.cell(w_issue[2], 10, "REMARKS", 1, 1, 'C', 1)
+        
         pdf.set_font('Arial', '', 8)
         for idx, item in enumerate(st.session_state['issue_list']):
-            pdf.cell(15, 10, str(idx+1), 1, 0, 'C'); pdf.cell(85, 10, item['issue'], 1, 0, 'L'); pdf.cell(90, 10, item['Remarks'], 1, 1, 'L')
+            txt_issue = str(item['issue'])
+            txt_remark = str(item['Remarks'])
+            
+            # 1. Kira berapa baris diperlukan untuk Issue dan Remark
+            lines_issue = pdf.multi_cell(w_issue[1], 5, txt_issue, split_only=True)
+            lines_remark = pdf.multi_cell(w_issue[2], 5, txt_remark, split_only=True)
+            
+            # 2. Ambil jumlah baris paling tinggi antara keduanya
+            max_lines = max(len(lines_issue), len(lines_remark))
+            row_h = max(10, max_lines * 5) # Tinggi minima 10mm
+            
+            # 3. Check page break
+            if pdf.get_y() + row_h > 270:
+                pdf.add_page()
+                pdf.set_font('Arial', 'B', 9); pdf.set_fill_color(230, 230, 230)
+                pdf.cell(w_issue[0], 10, "NO", 1, 0, 'C', 1)
+                pdf.cell(w_issue[1], 10, "SUMMARY / ISSUES", 1, 0, 'C', 1)
+                pdf.cell(w_issue[2], 10, "REMARKS", 1, 1, 'C', 1)
+                pdf.set_font('Arial', '', 8)
+
+            curr_x = pdf.get_x()
+            curr_y = pdf.get_y()
+
+            # 4. Lukis Column 1: NO
+            pdf.cell(w_issue[0], row_h, str(idx+1), 1, 0, 'C')
+
+            # 5. Lukis Column 2: SUMMARY (Kotak dulu, baru teks multi_cell)
+            pdf.cell(w_issue[1], row_h, "", 1, 0) # Lukis border kotak
+            pdf.set_xy(curr_x + w_issue[0], curr_y + (row_h - len(lines_issue)*5)/2)
+            pdf.multi_cell(w_issue[1], 5, txt_issue, 0, 'L')
+
+            # 6. Lukis Column 3: REMARKS (Kotak dulu, baru teks multi_cell)
+            pdf.set_xy(curr_x + w_issue[0] + w_issue[1], curr_y)
+            pdf.cell(w_issue[2], row_h, "", 1, 0) # Lukis border kotak
+            pdf.set_xy(curr_x + w_issue[0] + w_issue[1], curr_y + (row_h - len(lines_remark)*5)/2)
+            pdf.multi_cell(w_issue[2], 5, txt_remark, 0, 'L')
+
+            # Reset pointer ke baris baru
+            pdf.set_xy(curr_x, curr_y + row_h)
 
         # 5. Approval
         pdf.add_page()
@@ -562,6 +606,7 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
             mime="application/pdf",
             use_container_width=True
         )
+
 
 
 
