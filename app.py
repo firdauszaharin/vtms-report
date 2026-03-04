@@ -216,7 +216,7 @@ class VTMS_Full_Report(FPDF):
 st.set_page_config(page_title="VTMS Reporting System", layout="wide")
 
 with st.sidebar:
-    st.header("🏢 COMPANY ASSETS")
+    
     
     # Tukar 'logo.png' kepada nama fail logo anda yang sebenar dalam folder
     FIXED_LOGO_PATH = "logo.png" 
@@ -291,7 +291,7 @@ with st.sidebar:
     doc_id = st.text_input("Document ID", "LPJPTP/VTMS/2026")
     loc = st.text_input("Location", "VTS TOWER, TANJUNG PELEPAS")
     tech_name = st.text_input("Team Details", "Daus Works")
-    client_name = st.text_input("Client Name", "En. Azman")
+    client_name = st.text_input("Client Name", "NAZAME")
     report_dt = st.date_input("Date", datetime.now()).strftime("%d/%m/%Y")
 
 # --- Render Checklist ---
@@ -583,6 +583,7 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
             mime="application/pdf",
             use_container_width=True
         )
+
 
 
 
