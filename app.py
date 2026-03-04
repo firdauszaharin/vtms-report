@@ -7,30 +7,7 @@ from PIL import Image, ImageOps
 import numpy as np
 from streamlit_drawable_canvas import st_canvas
 
-# --- 1. SECURITY CHECK (Sistem Password) ---
-def check_password():
-    """Returns True if the user had the correct password."""
-    def password_entered():
-        if st.session_state["password"] == "DausVTMS2026": 
-            st.session_state["password_correct"] = True
-            del st.session_state["password"]
-        else:
-            st.session_state["password_correct"] = False
 
-    if "password_correct" not in st.session_state:
-        st.header("🔒 Akses Terhad")
-        st.text_input("Sila Masukkan Password Akses", type="password", on_change=password_entered, key="password")
-        return False
-    elif not st.session_state["password_correct"]:
-        st.header("🔒 Akses Terhad")
-        st.text_input("Sila Masukkan Password Akses", type="password", on_change=password_entered, key="password")
-        st.error("😕 Password salah. Sila hubungi pentadbir sistem.")
-        return False
-    else:
-        return True
-
-if not check_password():
-    st.stop()
 
 # --- 1. PENGURUSAN TEMPLATE ---
 TEMPLATE_FILE = 'templates.json'
@@ -606,6 +583,7 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
             mime="application/pdf",
             use_container_width=True
         )
+
 
 
 
