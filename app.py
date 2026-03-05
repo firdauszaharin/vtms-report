@@ -538,16 +538,53 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
         if evidence_data:
             pdf.add_page()
             pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "5.0    ATTACHMENTS", 0, 1); pdf.ln(5)
-            for i, ev in enumerate(evidence_data):
-                if i > 0 and i % 4 == 0: pdf.add_page()
-                pos = i % 4
-                x, y = [20, 110][pos % 2], [40, 145][pos // 2]
-                processed_img = process_image(ev['file'])
-                if processed_img:
-                    temp_ev = f"tmp_{i}.jpg"; processed_img.save(temp_ev, "JPEG")
-                    pdf.rect(x, y, 80, 80); pdf.image(temp_ev, x=x+2, y=y+2, w=76, h=60)
-                    pdf.set_xy(x, y + 65); pdf.set_font('Arial', '', 9); pdf.multi_cell(80, 5, ev['label'], 0, 'C')
-                    if os.path.exists(temp_ev): os.remove(temp_ev)
+            
+            # --- LOGIK KHAS UNTUK SERVER REPORT (2 GAMBAR BESAR: ATAS & BAWAH) ---
+            if "SERVER REPORT" in selected_template:
+                for i, ev in enumerate(evidence_data):
+                    # Setiap muka surat hanya muat 2 gambar (Atas & Bawah)
+                    if i > 0 and i % 2 == 0: pdf.add_page()
+                    
+                    pos_in_page = i % 2 # 0 untuk Atas, 1 untuk Bawah
+                    # X tetap di tengah, Y berubah ikut posisi (Atas: 40, Bawah: 145)
+                    x = 45 
+                    y = 40 if pos_in_page == 0 else 145
+                    
+                    processed_img = process_image(ev['file'])
+                    if processed_img:
+                        temp_ev = f"tmp_srv_{i}.jpg"
+                        processed_img.save(temp_ev, "JPEG")
+                        
+                        # Lukis Frame & Gambar (Saiz lebih besar: 120x80)
+                        pdf.rect(x, y, 120, 90) 
+                        pdf.image(temp_ev, x=x+2, y=y+2, w=116, h=75)
+                        
+                        # Caption di bawah gambar
+                        pdf.set_xy(x, y + 80)
+                        pdf.set_font('Arial', 'B', 10)
+                        pdf.multi_cell(120, 6, ev['label'], 0, 'C')
+                        
+                        if os.path.exists(temp_ev): os.remove(temp_ev)
+
+            # --- LOGIK UNTUK TEMPLATE LAIN (KEKALKAN 4 GAMBAR: 2X2) ---
+            else:
+                for i, ev in enumerate(evidence_data):
+                    if i > 0 and i % 4 == 0: pdf.add_page()
+                    pos = i % 4
+                    # Susunan asal awak (2 column, 2 row)
+                    x, y = [20, 110][pos % 2], [40, 145][pos // 2]
+                    
+                    processed_img = process_image(ev['file'])
+                    if processed_img:
+                        temp_ev = f"tmp_{i}.jpg"
+                        processed_img.save(temp_ev, "JPEG")
+                        pdf.rect(x, y, 80, 80)
+                        pdf.image(temp_ev, x=x+2, y=y+2, w=76, h=60)
+                        pdf.set_xy(x, y + 65)
+                        pdf.set_font('Arial', '', 9)
+                        pdf.multi_cell(80, 5, ev['label'], 0, 'C')
+                        
+                        if os.path.exists(temp_ev): os.remove(temp_ev)
 
         # --- LANGKAH 7: NEW TAB PREVIEW & DOWNLOAD ---
         pdf_output = pdf.output(dest='S')
@@ -583,6 +620,7 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
             mime="application/pdf",
             use_container_width=True
         )
+
 
 
 
