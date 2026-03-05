@@ -557,7 +557,7 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
                         
                         # Lukis Frame & Gambar (Saiz lebih besar: 120x80)
                         pdf.rect(x, y, 150, 100) 
-                        pdf.image(temp_ev, x=x+2, y=y+2, w=140, h=90)
+                        pdf.image(temp_ev, x=x+2, y=y+2, w=145, h=90)
                         
                         # Caption di bawah gambar
                         pdf.set_xy(x, y + 95)
@@ -620,6 +620,7 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
             mime="application/pdf",
             use_container_width=True
         )
+
 
 
 
