@@ -556,8 +556,8 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
                         processed_img.save(temp_ev, "JPEG")
                         
                         # Lukis Frame & Gambar (Saiz lebih besar: 120x80)
-                        pdf.rect(x, y, 120, 90) 
-                        pdf.image(temp_ev, x=x+2, y=y+2, w=116, h=75)
+                        pdf.rect(x, y, 130, 90) 
+                        pdf.image(temp_ev, x=x+2, y=y+2, w=125, h=80)
                         
                         # Caption di bawah gambar
                         pdf.set_xy(x, y + 80)
@@ -620,6 +620,7 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
             mime="application/pdf",
             use_container_width=True
         )
+
 
 
 
