@@ -547,7 +547,7 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
                     
                     pos_in_page = i % 2 # 0 untuk Atas, 1 untuk Bawah
                     # X tetap di tengah, Y berubah ikut posisi (Atas: 40, Bawah: 145)
-                    x = 45 
+                    x = 30 
                     y = 40 if pos_in_page == 0 else 145
                     
                     processed_img = process_image(ev['file'])
@@ -562,7 +562,7 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
                         # Caption di bawah gambar
                         pdf.set_xy(x, y + 95)
                         pdf.set_font('Arial', 'B', 10)
-                        pdf.multi_cell(120, 6, ev['label'], 0, 'C')
+                        pdf.multi_cell(150, 6, ev['label'], 0, 'C')
                         
                         if os.path.exists(temp_ev): os.remove(temp_ev)
 
@@ -620,6 +620,7 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
             mime="application/pdf",
             use_container_width=True
         )
+
 
 
 
