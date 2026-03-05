@@ -2,35 +2,12 @@ import streamlit as st
 from fpdf import FPDF
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from PIL import Image, ImageOps
 import numpy as np
 from streamlit_drawable_canvas import st_canvas
 
-# --- 1. SECURITY CHECK (Sistem Password) ---
-def check_password():
-    """Returns True if the user had the correct password."""
-    def password_entered():
-        if st.session_state["password"] == "DausVTMS2026": 
-            st.session_state["password_correct"] = True
-            del st.session_state["password"]
-        else:
-            st.session_state["password_correct"] = False
 
-    if "password_correct" not in st.session_state:
-        st.header("🔒 Akses Terhad")
-        st.text_input("Sila Masukkan Password Akses", type="password", on_change=password_entered, key="password")
-        return False
-    elif not st.session_state["password_correct"]:
-        st.header("🔒 Akses Terhad")
-        st.text_input("Sila Masukkan Password Akses", type="password", on_change=password_entered, key="password")
-        st.error("😕 Password salah. Sila hubungi pentadbir sistem.")
-        return False
-    else:
-        return True
-
-if not check_password():
-    st.stop()
 
 # --- 1. PENGURUSAN TEMPLATE ---
 TEMPLATE_FILE = 'templates.json'
@@ -103,10 +80,11 @@ def load_templates():
             "widths": [10, 110, 15, 15, 40],
             "type": "checkbox",
             "content": [
-                ["PTP PPB Servers", ["App Server VTSA SN: SGH443KXBB", "Database Server SN: SGH443KXBN", "Sensor Server SN: SGH443KX9Z", "VHF Server 1 SN: 8CJX034", "VHF Server 2 SN: 2JNX034"]],
-                ["Storage & Switch", ["SAN Switch SN: CZC4329XHM/XHP", "SAN Storage MSA SN: ACV411W1WL", "KVM LCD8500 SN: 2C4426BADY"]],
-                ["Server Tasks", ["Equipment operate without alarm", "Check system health and hardware status (CPU, RAM, disk usage)", "Check application and system logs for errors", "Check Windows update", "Verify archived data make sure 3 month previous data available", " Restart services or applications if necessary"]],
-                ["Housekeeping", ["Remove dust on terminals"]]
+                ["PTP PPB SERVER", ["App Server VTSA SN: SGH443KXBB", "Database Server SN: SGH443KXBN", "Sensor Server SN: SGH443KX9Z", "VHF Server 1 SN: 8CJX034", "VHF Server 2 SN: 2JNX034"]],
+                ["STORAGE & SWITCH", ["SAN Switch SN: CZC4329XHM/XHP", "SAN Storage MSA SN: ACV411W1WL", "KVM LCD8500 SN: 2C4426BADY"]],
+                ["SERVER TASKS", ["Equipment operate without alarm", "Check system health and hardware status (CPU, RAM, disk usage)", "Check application and system logs for errors", "Check Windows update", "Verify archived data make sure 3 month previous data available", " Restart services or applications if necessary"]],
+                ["CHECK SERVER PERFORMANCE", ["CPU usage (App Server VTSA)", "CPU usage (Database Server)", "CPU usage (Sensor Server)", "RAM usage (App Server VTSA)", "RAM usage (Database Server)", "RAM usage (Sensor Server)","Windows update (App Server VTSA)","Windows update (Database Server)","Windows update (Sensor Server)"]],
+                ["HOUSEKEEPING", ["Remove dust on terminals"]]
             ]
         },
             "LPJ SERVER REPORT": {
@@ -114,10 +92,11 @@ def load_templates():
             "widths": [10, 110, 15, 15, 40],
             "type": "checkbox",
             "content": [
-                ["LPJ Servers", ["App/DB Server SN: SGH441G81Z"]],
-                ["Storage & Switch", [ "SAN Switch SN: CZC4329XF8/XHT", "SAN Storage MSA SN: ACV411W1LS", "NTP Time Server and GPS Antenna check"]],
-                ["Server Tasks", ["Equipment operate without alarm", "Check system health and hardware status (CPU, RAM, disk usage)", "Check application and system logs for errors", "Check Windows update", "Verify archived data make sure 3 month previous data available", " Restart services or applications if necessary"]],
-                ["Housekeeping", ["Remove dust on terminals"]]
+                ["LPJ SERVER", ["App/DB Server SN: SGH441G81Z"]],
+                ["STORAGE & SWITCH", [ "SAN Switch SN: CZC4329XF8/XHT", "SAN Storage MSA SN: ACV411W1LS", "NTP Time Server and GPS Antenna check"]],
+                ["SERVER TASKS", ["Equipment operate without alarm", "Check system health and hardware status (CPU, RAM, disk usage)", "Check application and system logs for errors", "Check Windows update", "Verify archived data make sure 3 month previous data available", " Restart services or applications if necessary"]],
+                ["CHECK SERVER PERFORMANCE", ["CPU usage","RAM usage","Windows update"]],
+                ["HOUSEKEEPING", ["Remove dust on terminals"]]
             ]
         },
         "INSTALLATION REPORT": {
@@ -237,7 +216,7 @@ class VTMS_Full_Report(FPDF):
 st.set_page_config(page_title="VTMS Reporting System", layout="wide")
 
 with st.sidebar:
-    st.header("🏢 COMPANY ASSETS")
+    
     
     # Tukar 'logo.png' kepada nama fail logo anda yang sebenar dalam folder
     FIXED_LOGO_PATH = "logo.png" 
@@ -312,7 +291,7 @@ with st.sidebar:
     doc_id = st.text_input("Document ID", "LPJPTP/VTMS/2026")
     loc = st.text_input("Location", "VTS TOWER, TANJUNG PELEPAS")
     tech_name = st.text_input("Team Details", "Daus Works")
-    client_name = st.text_input("Client Name", "En. Azman")
+    client_name = st.text_input("Client Name", "NAZAME")
     report_dt = st.date_input("Date", datetime.now()).strftime("%d/%m/%Y")
 
 # --- Render Checklist ---
@@ -368,8 +347,8 @@ ca, cb = st.columns(2)
 with ca: st.write("Prepared By:"); sig1 = st_canvas(stroke_width=2, height=150, width=300, key="sig1", background_color="#ffffff")
 with cb: st.write("Verified By:"); sig2 = st_canvas(stroke_width=2, height=150, width=300, key="sig2", background_color="#ffffff")
 
-# --- 5. PDF GENERATION ---
-if st.button("🚀 GENERATE FINAL REPORT",type="primary", use_container_width=True):
+# --- 5. PDF GENERATION & PREVIEW (REPLACEMENT) ---
+if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=True):
     # Ambil data imej dari canvas
     p_img = process_signature(sig1.image_data)
     v_img = process_signature(sig2.image_data)
@@ -396,7 +375,6 @@ if st.button("🚀 GENERATE FINAL REPORT",type="primary", use_container_width=Tr
         pdf.cell(0, 10, "TABLE OF CONTENTS", 0, 1)
         pdf.ln(5)
         pdf.set_font('Arial', '', 11) 
-        # Manual TOC mapping (kerana kita guna fpdf lama)
         toc_items = [
             ("2.0", "DETAILS / CHECKLIST"),
             ("3.0", "SUMMARY & ISSUES"),
@@ -404,170 +382,211 @@ if st.button("🚀 GENERATE FINAL REPORT",type="primary", use_container_width=Tr
             ("5.0", "ATTACHMENTS")
         ]
         for n, t in toc_items:
-            pdf.cell(10, 10, n, 0, 0)      # Cetak No Seksyen (cth: 2.0)
-            pdf.cell(0, 10, t, 0, 1)       # Cetak Tajuk Seksyen (cth: DETAILS / CHECKLIST)
-        
+            pdf.cell(10, 10, n, 0, 0)
+            pdf.cell(0, 10, t, 0, 1)
 
-        # 3. Details / Checklist
+       # --- 3. Checklist (LOGIK FIX: KOTAK MANTAP & TEXT CENTERED) ---
         pdf.add_page()
         pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "2.0    DETAILS / CHECKLIST", 0, 1)
+        
         h_l, w_l = config["headers"], config["widths"]
         pdf.set_font('Arial', 'B', 8); pdf.set_fill_color(230, 230, 230)
-        for i, h in enumerate(h_l): pdf.cell(w_l[i], 8, h, 1, 0, 'C', 1)
+        for i, h in enumerate(h_l): 
+            pdf.cell(w_l[i], 8, h, 1, 0, 'C', 1)
         pdf.ln()
 
         cnt = 1
         for row in checklist_results:
-            if pdf.get_y() > 260: # Threshold untuk page break
-                pdf.add_page()
-                for i, h in enumerate(h_l): pdf.cell(w_l[i], 8, h, 1, 0, 'C', 1)
-                pdf.ln()
             if row['res'] == "TITLE":
-                cnt = 1; pdf.set_font('Arial', 'B', 8); pdf.set_fill_color(245, 245, 245)
-                pdf.cell(sum(w_l), 7, f" {row['task']}", 1, 1, 'L', 1)
+                pdf.set_font('Arial', 'B', 8); pdf.set_fill_color(245, 245, 245)
+                pdf.cell(sum(w_l), 8, f" {row['task']}", 1, 1, 'L', 1)
+                cnt = 1
             else:
                 pdf.set_font('Arial', '', 7)
-                pdf.cell(w_l[0], 6, str(cnt), 1, 0, 'C')
-                pdf.cell(w_l[1], 6, f" {row['task']}", 1, 0, 'L')
-                if config["type"] == "technical":
-                    pdf.cell(w_l[2], 6, str(row.get('spec','-')), 1, 0, 'C')
-                    pdf.cell(w_l[3], 6, str(row.get('actual','-')), 1, 0, 'C')
-                    pdf.cell(w_l[4], 6, row['res'], 1, 1, 'C')
+                txt_remark = str(row.get('com', ''))
+                
+                # Kira dulu berapa line Remark ni (Lebar Remark biasanya w_l[4] = 40)
+                # Kita guna simulasi split_only=True
+                lines = pdf.multi_cell(w_l[4], 5, txt_remark, split_only=True)
+                line_count = len(lines)
+                
+                # Tinggi row mestilah cukup untuk semua line (minima 8mm)
+                row_h = max(8, line_count * 5)
+
+                # Cek cukup ruang ke tak
+                if pdf.get_y() + row_h > 270:
+                    pdf.add_page()
+                    pdf.set_font('Arial', 'B', 8); pdf.set_fill_color(230, 230, 230)
+                    for i, h in enumerate(h_l): pdf.cell(w_l[i], 8, h, 1, 0, 'C', 1)
+                    pdf.ln()
+                    pdf.set_font('Arial', '', 7)
+
+                # --- TEKNIK DRAWING BORDER ---
+                # Simpan posisi awal (X, Y)
+                curr_x = pdf.get_x()
+                curr_y = pdf.get_y()
+
+                # Lukis kotak background/border untuk semua column dulu
+                # Column 1: No
+                pdf.cell(w_l[0], row_h, str(cnt), 1, 0, 'C')
+                # Column 2: Item
+                pdf.cell(w_l[1], row_h, f" {row['task']}", 1, 0, 'L')
+                
+                if config.get("type") == "technical":
+                    pdf.cell(w_l[2], row_h, row.get('spec','-'), 1, 0, 'C')
+                    pdf.cell(w_l[3], row_h, row.get('actual','-'), 1, 0, 'C')
+                    pdf.cell(w_l[4], row_h, row['res'], 1, 0, 'C') # Guna 0 supaya pointer tak turun dulu
                 else:
-                    pdf.cell(w_l[2], 6, "X" if row['res'] == "PASS" else "", 1, 0, 'C')
-                    pdf.cell(w_l[3], 6, "X" if row['res'] == "FAIL" else "", 1, 0, 'C')
-                    pdf.cell(w_l[4], 6, f" {row.get('com','')}", 1, 1, 'L')
+                    # Column 3: Pass
+                    pdf.cell(w_l[2], row_h, "X" if row['res'] == "PASS" else "", 1, 0, 'C')
+                    # Column 4: Fail
+                    pdf.cell(w_l[3], row_h, "X" if row['res'] == "FAIL" else "", 1, 0, 'C')
+                    
+                    # Column 5: Remark (Multi-line)
+                    # Sebelum guna multi_cell, kita set posisi X ke hujung (start column remark)
+                    pdf.set_xy(curr_x + w_l[0] + w_l[1] + w_l[2] + w_l[3], curr_y)
+                    
+                    # Kita lukis kotak border luar dulu supaya border tak putus
+                    pdf.cell(w_l[4], row_h, "", 1, 0) 
+                    
+                    # Sekarang tulis teks di dalam kotak tu (tanpa border 1, guna 0)
+                    pdf.set_xy(curr_x + w_l[0] + w_l[1] + w_l[2] + w_l[3], curr_y + (row_h - (line_count*5))/2)
+                    pdf.multi_cell(w_l[4], 5, txt_remark, 0, 'L')
+
+                # Reset posisi ke baris baru
+                pdf.set_xy(curr_x, curr_y + row_h)
                 cnt += 1
 
-        # 4. Summary & Issues
+        # --- 4. Summary & Issues (LOGIK AUTO-WRAP) ---
         pdf.add_page()
         pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "3.0    SUMMARY & ISSUES", 0, 1)
+        
+        # Lebar column: NO (15), SUMMARY (85), REMARKS (90) = Total 190mm
+        w_issue = [15, 85, 90]
         pdf.set_font('Arial', 'B', 9); pdf.set_fill_color(230, 230, 230)
-        pdf.cell(15, 10, "NO", 1, 0, 'C', 1); pdf.cell(85, 10, "SUMMARY / ISSUES", 1, 0, 'C', 1); pdf.cell(90, 10, "REMARKS", 1, 1, 'C', 1)
+        pdf.cell(w_issue[0], 10, "NO", 1, 0, 'C', 1)
+        pdf.cell(w_issue[1], 10, "SUMMARY / ISSUES", 1, 0, 'C', 1)
+        pdf.cell(w_issue[2], 10, "REMARKS", 1, 1, 'C', 1)
+        
         pdf.set_font('Arial', '', 8)
         for idx, item in enumerate(st.session_state['issue_list']):
-            pdf.cell(15, 10, str(idx+1), 1, 0, 'C'); pdf.cell(85, 10, item['issue'], 1, 0, 'L'); pdf.cell(90, 10, item['Remarks'], 1, 1, 'L')
+            txt_issue = str(item['issue'])
+            txt_remark = str(item['Remarks'])
+            
+            # 1. Kira berapa baris diperlukan untuk Issue dan Remark
+            lines_issue = pdf.multi_cell(w_issue[1], 5, txt_issue, split_only=True)
+            lines_remark = pdf.multi_cell(w_issue[2], 5, txt_remark, split_only=True)
+            
+            # 2. Ambil jumlah baris paling tinggi antara keduanya
+            max_lines = max(len(lines_issue), len(lines_remark))
+            row_h = max(10, max_lines * 5) # Tinggi minima 10mm
+            
+            # 3. Check page break
+            if pdf.get_y() + row_h > 270:
+                pdf.add_page()
+                pdf.set_font('Arial', 'B', 9); pdf.set_fill_color(230, 230, 230)
+                pdf.cell(w_issue[0], 10, "NO", 1, 0, 'C', 1)
+                pdf.cell(w_issue[1], 10, "SUMMARY / ISSUES", 1, 0, 'C', 1)
+                pdf.cell(w_issue[2], 10, "REMARKS", 1, 1, 'C', 1)
+                pdf.set_font('Arial', '', 8)
 
-        # 5. Approval & Acceptance
+            curr_x = pdf.get_x()
+            curr_y = pdf.get_y()
+
+            # 4. Lukis Column 1: NO
+            pdf.cell(w_issue[0], row_h, str(idx+1), 1, 0, 'C')
+
+            # 5. Lukis Column 2: SUMMARY (Kotak dulu, baru teks multi_cell)
+            pdf.cell(w_issue[1], row_h, "", 1, 0) # Lukis border kotak
+            pdf.set_xy(curr_x + w_issue[0], curr_y + (row_h - len(lines_issue)*5)/2)
+            pdf.multi_cell(w_issue[1], 5, txt_issue, 0, 'L')
+
+            # 6. Lukis Column 3: REMARKS (Kotak dulu, baru teks multi_cell)
+            pdf.set_xy(curr_x + w_issue[0] + w_issue[1], curr_y)
+            pdf.cell(w_issue[2], row_h, "", 1, 0) # Lukis border kotak
+            pdf.set_xy(curr_x + w_issue[0] + w_issue[1], curr_y + (row_h - len(lines_remark)*5)/2)
+            pdf.multi_cell(w_issue[2], 5, txt_remark, 0, 'L')
+
+            # Reset pointer ke baris baru
+            pdf.set_xy(curr_x, curr_y + row_h)
+
+        # 5. Approval
         pdf.add_page()
-        pdf.set_font('Arial', 'B', 12)
-        pdf.cell(0, 10, "4.0    APPROVAL & ACCEPTANCE", 0, 1)
-        pdf.ln(5)
-
-        pdf.set_font('Arial', 'B', 10)
-        pdf.cell(0, 7, "Confirmation Statement:", 0, 1)
-        
+        pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "4.0    APPROVAL & ACCEPTANCE", 0, 1); pdf.ln(5)
         pdf.set_font('Arial', '', 10)
-        stmt = "The undersigned hereby confirms that the works described in this report have been carried out in accordance with the agreed scope, specifications, and requirements. All findings and remarks have been documented and verified accordingly."
+        stmt = "The undersigned hereby confirms that the works described in this report have been carried out in accordance with agreed scope."
         pdf.multi_cell(0, 6, stmt, 0, 'L')
         
-        # Simpan imej sementara
-        p_img.save("p.png")
-        v_img.save("v.png")
-
-        # Tentukan posisi Y untuk tanda tangan
-        y_sig_start = pdf.get_y() + 10 
+        p_img.save("p.png"); v_img.save("v.png")
+        y_sig = pdf.get_y() + 10
+        pdf.image("p.png", x=40, y=y_sig, w=40); pdf.image("v.png", x=130, y=y_sig, w=40)
+        pdf.set_y(y_sig + 25)
         
-        # 1. Letak tanda tangan
-        pdf.image("p.png", x=40, y=y_sig_start, w=40)
-        pdf.image("v.png", x=130, y=y_sig_start, w=40)
+        myt_now = datetime.now(timezone.utc) + timedelta(hours=8)
+        gen_timestamp = myt_now.strftime("%d/%m/%Y %H:%M:%S")
         
-        # 2. Letak teks nama dan timestamp di bawah tanda tangan
-        pdf.set_y(y_sig_start + 25) 
-        
-        # Ambil masa semasa untuk rekod penjanaan (Date & Time)
-        gen_timestamp = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        
-        # --- Baris Nama ---
         pdf.set_font('Arial', 'B', 10)
-        pdf.set_x(15)
-        pdf.cell(90, 8, f"PREPARED BY: {tech_name}", 0, 0, 'C') 
-        pdf.set_x(105)
-        pdf.cell(90, 8, f"VERIFIED BY: {client_name}", 0, 1, 'C')
-
-        # --- Baris Timestamp (Font lebih kecil dan Italic) ---
+        pdf.set_x(15); pdf.cell(90, 8, f"PREPARED BY: {tech_name}", 0, 0, 'C')
+        pdf.set_x(105); pdf.cell(90, 8, f"VERIFIED BY: {client_name}", 0, 1, 'C')
         pdf.set_font('Arial', 'I', 8)
-        pdf.set_x(15)
-        pdf.cell(90, 5, f"Date/Time: {gen_timestamp}", 0, 0, 'C')
-        pdf.set_x(105)
-        pdf.cell(90, 5, f"Date/Time: {gen_timestamp}", 0, 1, 'C')
-
-        # Cleanup
+        pdf.set_x(15); pdf.cell(90, 5, f"MYT: {gen_timestamp}", 0, 0, 'C')
+        pdf.set_x(105); pdf.cell(90, 5, f"MYT: {gen_timestamp}", 0, 1, 'C')
         if os.path.exists("p.png"): os.remove("p.png")
         if os.path.exists("v.png"): os.remove("v.png")
 
-        # --- 6.0 ATTACHMENTS (FORMAT JADUAL BERSEMPADAN) ---
+        # 6. Attachments
         if evidence_data:
             pdf.add_page()
-            pdf.set_font('Arial', 'B', 12)
-            pdf.cell(0, 10, "5.0    ATTACHMENTS", 0, 1)
-            pdf.ln(5)
-            
-            # --- TETAPAN AUTOMATIK (A4 = 210mm lebar) ---
-            box_w = 90               # 1. Tentukan lebar kotak yang anda mahu
-            box_h = 100               # 2. Tentukan tinggi kotak yang anda mahu
-            gap = 5                 # 3. Jarak (gap) antara kotak kiri dan kanan
-            
-            # Kira margin supaya center: (Lebar Kertas - (2 kotak + 1 gap)) / 2
-            margin_x = (210 - (2 * box_w + gap)) / 2
-            
-            col_x = [margin_x, margin_x + box_w + gap] # Koordinat X automatik
-            row_y = [35, 35 + box_h + 5]              # Koordinat Y (baris 1 & 2)
-            
+            pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "5.0    ATTACHMENTS", 0, 1); pdf.ln(5)
             for i, ev in enumerate(evidence_data):
-                # Tambah muka surat baru selepas setiap 4 keping gambar
-                if i > 0 and i % 4 == 0:
-                    pdf.add_page()
-                
+                if i > 0 and i % 4 == 0: pdf.add_page()
                 pos = i % 4
-                x, y = col_x[pos % 2], row_y[pos // 2]
-                
-                # 1. LUKIS BORDER KOTAK (Jadual)
-                pdf.set_draw_color(0, 0, 0)
-                pdf.set_line_width(0.3)
-                pdf.rect(x, y, box_w, box_h)
-                
-                # 2. MASUKKAN GAMBAR
+                x, y = [20, 110][pos % 2], [40, 145][pos // 2]
                 processed_img = process_image(ev['file'])
                 if processed_img:
-                    temp_ev = f"tmp_ev_{i}.jpg"
-                    processed_img.save(temp_ev, "JPEG", quality=95)
-                    
-                    # Gambar diletakkan di dalam kotak dengan padding sedikit
-                    # Saiz gambar dikecilkan sedikit (85x65) supaya muat ruang teks di bawah
-                    pdf.image(temp_ev, x=x+3.75, y=y+5, w=85, h=65)
-                    
-                    # 3. GARISAN PEMISAH (Antara Gambar & Kapsyen)
-                    pdf.line(x, y + 90, x + box_w, y + 90)
-                    
-                    # 4. TAJUK/KAPSYEN DI BAWAH GAMBAR
-                    pdf.set_xy(x, y + 90)
-                    pdf.set_font('Arial', '', 10)
-                    # Multi_cell supaya teks panjang automatik ke baris baru dalam kotak
-                    pdf.multi_cell(box_w, 7, ev['label'], 0, 'C')
-                    
-                    if os.path.exists(temp_ev): 
-                        os.remove(temp_ev)
+                    temp_ev = f"tmp_{i}.jpg"; processed_img.save(temp_ev, "JPEG")
+                    pdf.rect(x, y, 80, 80); pdf.image(temp_ev, x=x+2, y=y+2, w=76, h=60)
+                    pdf.set_xy(x, y + 65); pdf.set_font('Arial', '', 9); pdf.multi_cell(80, 5, ev['label'], 0, 'C')
+                    if os.path.exists(temp_ev): os.remove(temp_ev)
 
-        # --- LANGKAH 7: FINAL DOWNLOAD HANDLING ---
+        # --- LANGKAH 7: NEW TAB PREVIEW & DOWNLOAD ---
         pdf_output = pdf.output(dest='S')
-        
-        # Selesaikan masalah bytearray vs string
-        if isinstance(pdf_output, str):
-            final_bytes = pdf_output.encode('latin-1')
-        else:
-            final_bytes = bytes(pdf_output)
+        final_bytes = pdf_output.encode('latin-1') if isinstance(pdf_output, str) else bytes(pdf_output)
 
-        # Membersihkan nama fail (tukar ruang kosong kepada underscore)
+        date_str = myt_now.strftime('%d%m%Y')
         clean_filename = selected_template.replace(" ", "_")
-        date_str = datetime.now().strftime('%d%m%Y')
+        full_file_name = f"{clean_filename}_{date_str}.pdf"
+
+        st.divider()
+        import base64
+        b64 = base64.b64encode(final_bytes).decode('utf-8')
+        
+        # JavaScript Button untuk New Tab
+        new_tab_js = f"""
+            <script>
+                function openPDF() {{
+                    var pdfData = "data:application/pdf;base64,{b64}";
+                    var win = window.open();
+                    win.document.write('<iframe src="' + pdfData + '" frameborder="0" style="position:fixed; top:0; left:0; bottom:0; right:0; width:100%; height:100%; border:none; margin:0; padding:0; overflow:hidden; z-index:999999;" allowfullscreen></iframe>');
+                }}
+            </script>
+            <button onclick="openPDF()" style="width:100%; background-color:#2e7bcf; color:white; padding:12px; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">
+                👁️ PREVIEW REPORT IN NEW TAB
+            </button>
+        """
+        st.components.v1.html(new_tab_js, height=60)
 
         st.download_button(
-            label="📥 DOWNLOAD REPORT",
+            label=f"📥 DOWNLOAD {full_file_name}",
             data=final_bytes,
-            # Sekarang nama fail akan jadi cth: MET_REPORT_03022026.pdf
-            file_name=f"{clean_filename}_{date_str}.pdf",
+            file_name=full_file_name,
             mime="application/pdf",
             use_container_width=True
         )
+
+
+
+
+
+
 
