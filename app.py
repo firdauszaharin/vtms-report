@@ -340,7 +340,7 @@ ca, cb = st.columns(2)
 with ca: st.write("Prepared By:"); sig1 = st_canvas(stroke_width=2, height=150, width=300, key="sig1", background_color="#ffffff")
 with cb: st.write("Verified By:"); sig2 = st_canvas(stroke_width=2, height=150, width=300, key="sig2", background_color="#ffffff")
 
-# --- 5. PDF GENERATION & PREVIEW (FIXED RUNTIME ERROR) ---
+# --- 5. PDF GENERATION & PREVIEW (FIXED RUNTIME ERROR & OPTIONAL SIGNATURE) ---
 if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=True):
     p_img, v_img = None, None
 
@@ -357,235 +357,239 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
     except Exception:
         v_img = None
 
-    if p_img is None or v_img is None:
-        st.error("Sila turunkan tanda tangan (Prepared By & Verified By) terlebih dahulu!")
-    else:
-        pdf = VTMS_Full_Report(header_title=header_txt)
-        logo_to_use = FIXED_LOGO_PATH if os.path.exists(FIXED_LOGO_PATH) else None
+    # JIKA TANDATANGAN KOSONG: Cipta imej putih kosong automatik supaya PDF tetap boleh dijana
+    if p_img is None:
+        p_img = Image.new("RGB", (300, 150), (255, 255, 255))
+    if v_img is None:
+        v_img = Image.new("RGB", (300, 150), (255, 255, 255))
 
-        # 1. Cover Page
-        pdf.cover_page({
-            "owner": sys_owner, 
-            "ref": proj_ref, 
-            "title": selected_template, 
-            "loc": loc, 
-            "id": doc_id, 
-            "dt": report_dt
-        }, logo_path=logo_to_use)
-        
-        # 2. Table of Contents
-        pdf.add_page()
-        pdf.set_font('Arial', 'B', 14) 
-        pdf.cell(0, 10, "TABLE OF CONTENTS", 0, 1)
-        pdf.ln(5)
-        pdf.set_font('Arial', '', 11) 
-        toc_items = [
-            ("2.0", "DETAILS / CHECKLIST"),
-            ("3.0", "SUMMARY & ISSUES"),
-            ("4.0", "APPROVAL"),
-            ("5.0", "ATTACHMENTS")
-        ]
-        for n, t in toc_items:
-            pdf.cell(10, 10, n, 0, 0)
-            pdf.cell(0, 10, t, 0, 1)
+    # Teruskan pembinaan PDF tanpa sebarang sekatan
+    pdf = VTMS_Full_Report(header_title=header_txt)
+    logo_to_use = FIXED_LOGO_PATH if os.path.exists(FIXED_LOGO_PATH) else None
 
-        # 3. Checklist
-        pdf.add_page()
-        pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "2.0    DETAILS / CHECKLIST", 0, 1)
-        
-        h_l, w_l = config["headers"], config["widths"]
-        pdf.set_font('Arial', 'B', 8); pdf.set_fill_color(230, 230, 230)
-        for i, h in enumerate(h_l): 
-            pdf.cell(w_l[i], 8, h, 1, 0, 'C', 1)
-        pdf.ln()
+    # 1. Cover Page
+    pdf.cover_page({
+        "owner": sys_owner, 
+        "ref": proj_ref, 
+        "title": selected_template, 
+        "loc": loc, 
+        "id": doc_id, 
+        "dt": report_dt
+    }, logo_path=logo_to_use)
+    
+    # 2. Table of Contents
+    pdf.add_page()
+    pdf.set_font('Arial', 'B', 14) 
+    pdf.cell(0, 10, "TABLE OF CONTENTS", 0, 1)
+    pdf.ln(5)
+    pdf.set_font('Arial', '', 11) 
+    toc_items = [
+        ("2.0", "DETAILS / CHECKLIST"),
+        ("3.0", "SUMMARY & ISSUES"),
+        ("4.0", "APPROVAL"),
+        ("5.0", "ATTACHMENTS")
+    ]
+    for n, t in toc_items:
+        pdf.cell(10, 10, n, 0, 0)
+        pdf.cell(0, 10, t, 0, 1)
 
-        cnt = 1
-        for row in checklist_results:
-            if row['res'] == "TITLE":
-                pdf.set_font('Arial', 'B', 8); pdf.set_fill_color(245, 245, 245)
-                pdf.cell(sum(w_l), 8, f" {row['task']}", 1, 1, 'L', 1)
-                cnt = 1
-            else:
-                pdf.set_font('Arial', '', 7)
-                txt_remark = str(row.get('com', ''))
-                
-                lines = pdf.multi_cell(w_l[4], 5, txt_remark, split_only=True)
-                line_count = len(lines)
-                
-                row_h = max(8, line_count * 5)
+    # 3. Checklist
+    pdf.add_page()
+    pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "2.0    DETAILS / CHECKLIST", 0, 1)
+    
+    h_l, w_l = config["headers"], config["widths"]
+    pdf.set_font('Arial', 'B', 8); pdf.set_fill_color(230, 230, 230)
+    for i, h in enumerate(h_l): 
+        pdf.cell(w_l[i], 8, h, 1, 0, 'C', 1)
+    pdf.ln()
 
-                if pdf.get_y() + row_h > 270:
-                    pdf.add_page()
-                    pdf.set_font('Arial', 'B', 8); pdf.set_fill_color(230, 230, 230)
-                    for i, h in enumerate(h_l): pdf.cell(w_l[i], 8, h, 1, 0, 'C', 1)
-                    pdf.ln()
-                    pdf.set_font('Arial', '', 7)
-
-                curr_x = pdf.get_x()
-                curr_y = pdf.get_y()
-
-                pdf.cell(w_l[0], row_h, str(cnt), 1, 0, 'C')
-                pdf.cell(w_l[1], row_h, f" {row['task']}", 1, 0, 'L')
-                
-                if config.get("type") == "technical":
-                    pdf.cell(w_l[2], row_h, row.get('spec','-'), 1, 0, 'C')
-                    pdf.cell(w_l[3], row_h, row.get('actual','-'), 1, 0, 'C')
-                    pdf.cell(w_l[4], row_h, row['res'], 1, 0, 'C')
-                else:
-                    pdf.cell(w_l[2], row_h, "X" if row['res'] == "PASS" else "", 1, 0, 'C')
-                    pdf.cell(w_l[3], row_h, "X" if row['res'] == "FAIL" else "", 1, 0, 'C')
-                    
-                    pdf.set_xy(curr_x + w_l[0] + w_l[1] + w_l[2] + w_l[3], curr_y)
-                    pdf.cell(w_l[4], row_h, "", 1, 0) 
-                    pdf.set_xy(curr_x + w_l[0] + w_l[1] + w_l[2] + w_l[3], curr_y + (row_h - (line_count*5))/2)
-                    pdf.multi_cell(w_l[4], 5, txt_remark, 0, 'L')
-
-                pdf.set_xy(curr_x, curr_y + row_h)
-                cnt += 1
-
-        # 4. Summary & Issues
-        pdf.add_page()
-        pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "3.0    SUMMARY & ISSUES", 0, 1)
-        
-        w_issue = [15, 85, 90]
-        pdf.set_font('Arial', 'B', 9); pdf.set_fill_color(230, 230, 230)
-        pdf.cell(w_issue[0], 10, "NO", 1, 0, 'C', 1)
-        pdf.cell(w_issue[1], 10, "SUMMARY / ISSUES", 1, 0, 'C', 1)
-        pdf.cell(w_issue[2], 10, "REMARKS", 1, 1, 'C', 1)
-        
-        pdf.set_font('Arial', '', 8)
-        for idx, item in enumerate(st.session_state['issue_list']):
-            txt_issue = str(item['issue'])
-            txt_remark = str(item['Remarks'])
+    cnt = 1
+    for row in checklist_results:
+        if row['res'] == "TITLE":
+            pdf.set_font('Arial', 'B', 8); pdf.set_fill_color(245, 245, 245)
+            pdf.cell(sum(w_l), 8, f" {row['task']}", 1, 1, 'L', 1)
+            cnt = 1
+        else:
+            pdf.set_font('Arial', '', 7)
+            txt_remark = str(row.get('com', ''))
             
-            lines_issue = pdf.multi_cell(w_issue[1], 5, txt_issue, split_only=True)
-            lines_remark = pdf.multi_cell(w_issue[2], 5, txt_remark, split_only=True)
+            lines = pdf.multi_cell(w_l[4], 5, txt_remark, split_only=True)
+            line_count = len(lines)
             
-            max_lines = max(len(lines_issue), len(lines_remark))
-            row_h = max(10, max_lines * 5)
-            
+            row_h = max(8, line_count * 5)
+
             if pdf.get_y() + row_h > 270:
                 pdf.add_page()
-                pdf.set_font('Arial', 'B', 9); pdf.set_fill_color(230, 230, 230)
-                pdf.cell(w_issue[0], 10, "NO", 1, 0, 'C', 1)
-                pdf.cell(w_issue[1], 10, "SUMMARY / ISSUES", 1, 0, 'C', 1)
-                pdf.cell(w_issue[2], 10, "REMARKS", 1, 1, 'C', 1)
-                pdf.set_font('Arial', '', 8)
+                pdf.set_font('Arial', 'B', 8); pdf.set_fill_color(230, 230, 230)
+                for i, h in enumerate(h_l): pdf.cell(w_l[i], 8, h, 1, 0, 'C', 1)
+                pdf.ln()
+                pdf.set_font('Arial', '', 7)
 
             curr_x = pdf.get_x()
             curr_y = pdf.get_y()
 
-            pdf.cell(w_issue[0], row_h, str(idx+1), 1, 0, 'C')
-
-            pdf.cell(w_issue[1], row_h, "", 1, 0)
-            pdf.set_xy(curr_x + w_issue[0], curr_y + (row_h - len(lines_issue)*5)/2)
-            pdf.multi_cell(w_issue[1], 5, txt_issue, 0, 'L')
-
-            pdf.set_xy(curr_x + w_issue[0] + w_issue[1], curr_y)
-            pdf.cell(w_issue[2], row_h, "", 1, 0)
-            pdf.set_xy(curr_x + w_issue[0] + w_issue[1], curr_y + (row_h - len(lines_remark)*5)/2)
-            pdf.multi_cell(w_issue[2], 5, txt_remark, 0, 'L')
+            pdf.cell(w_l[0], row_h, str(cnt), 1, 0, 'C')
+            pdf.cell(w_l[1], row_h, f" {row['task']}", 1, 0, 'L')
+            
+            if config.get("type") == "technical":
+                pdf.cell(w_l[2], row_h, row.get('spec','-'), 1, 0, 'C')
+                pdf.cell(w_l[3], row_h, row.get('actual','-'), 1, 0, 'C')
+                pdf.cell(w_l[4], row_h, row['res'], 1, 0, 'C')
+            else:
+                pdf.cell(w_l[2], row_h, "X" if row['res'] == "PASS" else "", 1, 0, 'C')
+                pdf.cell(w_l[3], row_h, "X" if row['res'] == "FAIL" else "", 1, 0, 'C')
+                
+                pdf.set_xy(curr_x + w_l[0] + w_l[1] + w_l[2] + w_l[3], curr_y)
+                pdf.cell(w_l[4], row_h, "", 1, 0) 
+                pdf.set_xy(curr_x + w_l[0] + w_l[1] + w_l[2] + w_l[3], curr_y + (row_h - (line_count*5))/2)
+                pdf.multi_cell(w_l[4], 5, txt_remark, 0, 'L')
 
             pdf.set_xy(curr_x, curr_y + row_h)
+            cnt += 1
 
-        # 5. Approval
-        pdf.add_page()
-        pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "4.0    APPROVAL & ACCEPTANCE", 0, 1); pdf.ln(5)
-        pdf.set_font('Arial', '', 10)
-        stmt = "The undersigned hereby confirms that the works described in this report have been carried out in accordance with agreed scope."
-        pdf.multi_cell(0, 6, stmt, 0, 'L')
+    # 4. Summary & Issues
+    pdf.add_page()
+    pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "3.0    SUMMARY & ISSUES", 0, 1)
+    
+    w_issue = [15, 85, 90]
+    pdf.set_font('Arial', 'B', 9); pdf.set_fill_color(230, 230, 230)
+    pdf.cell(w_issue[0], 10, "NO", 1, 0, 'C', 1)
+    pdf.cell(w_issue[1], 10, "SUMMARY / ISSUES", 1, 0, 'C', 1)
+    pdf.cell(w_issue[2], 10, "REMARKS", 1, 1, 'C', 1)
+    
+    pdf.set_font('Arial', '', 8)
+    for idx, item in enumerate(st.session_state['issue_list']):
+        txt_issue = str(item['issue'])
+        txt_remark = str(item['Remarks'])
         
-        p_img.save("p.png"); v_img.save("v.png")
-        y_sig = pdf.get_y() + 10
-        pdf.image("p.png", x=40, y=y_sig, w=40); pdf.image("v.png", x=130, y=y_sig, w=40)
-        pdf.set_y(y_sig + 25)
+        lines_issue = pdf.multi_cell(w_issue[1], 5, txt_issue, split_only=True)
+        lines_remark = pdf.multi_cell(w_issue[2], 5, txt_remark, split_only=True)
         
-        myt_now = datetime.now(timezone.utc) + timedelta(hours=8)
-        gen_timestamp = myt_now.strftime("%d/%m/%Y %H:%M:%S")
+        max_lines = max(len(lines_issue), len(lines_remark))
+        row_h = max(10, max_lines * 5)
         
-        pdf.set_font('Arial', 'B', 10)
-        pdf.set_x(15); pdf.cell(90, 8, f"PREPARED BY: {tech_name}", 0, 0, 'C')
-        pdf.set_x(105); pdf.cell(90, 8, f"VERIFIED BY: {client_name}", 0, 1, 'C')
-        pdf.set_font('Arial', 'I', 8)
-        pdf.set_x(15); pdf.cell(90, 5, f"MYT: {gen_timestamp}", 0, 0, 'C')
-        pdf.set_x(105); pdf.cell(90, 5, f"MYT: {gen_timestamp}", 0, 1, 'C')
-        if os.path.exists("p.png"): os.remove("p.png")
-        if os.path.exists("v.png"): os.remove("v.png")
-
-        # 6. Attachments
-        if evidence_data:
+        if pdf.get_y() + row_h > 270:
             pdf.add_page()
-            pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "5.0    ATTACHMENTS", 0, 1); pdf.ln(5)
-            
-            if "SERVER REPORT" in selected_template:
-                for i, ev in enumerate(evidence_data):
-                    if i > 0 and i % 2 == 0: pdf.add_page()
-                    
-                    pos_in_page = i % 2
-                    x = 30 
-                    y = 35 if pos_in_page == 0 else 145
-                    
-                    processed_img = process_image(ev['file'])
-                    if processed_img:
-                        temp_ev = f"tmp_srv_{i}.jpg"
-                        processed_img.save(temp_ev, "JPEG")
-                        
-                        pdf.rect(x, y, 150, 100) 
-                        pdf.image(temp_ev, x=x+2, y=y+2, w=145, h=90)
-                        
-                        pdf.set_xy(x, y + 95)
-                        pdf.set_font('Arial', 'B', 10)
-                        pdf.multi_cell(150, 6, ev['label'], 0, 'C')
-                        
-                        if os.path.exists(temp_ev): os.remove(temp_ev)
+            pdf.set_font('Arial', 'B', 9); pdf.set_fill_color(230, 230, 230)
+            pdf.cell(w_issue[0], 10, "NO", 1, 0, 'C', 1)
+            pdf.cell(w_issue[1], 10, "SUMMARY / ISSUES", 1, 0, 'C', 1)
+            pdf.cell(w_issue[2], 10, "REMARKS", 1, 1, 'C', 1)
+            pdf.set_font('Arial', '', 8)
 
-            else:
-                for i, ev in enumerate(evidence_data):
-                    if i > 0 and i % 4 == 0: pdf.add_page()
-                    pos = i % 4
-                    x, y = [20, 110][pos % 2], [40, 145][pos // 2]
-                    
-                    processed_img = process_image(ev['file'])
-                    if processed_img:
-                        temp_ev = f"tmp_{i}.jpg"
-                        processed_img.save(temp_ev, "JPEG")
-                        pdf.rect(x, y, 80, 80)
-                        pdf.image(temp_ev, x=x+2, y=y+2, w=76, h=60)
-                        pdf.set_xy(x, y + 65)
-                        pdf.set_font('Arial', '', 9)
-                        pdf.multi_cell(80, 5, ev['label'], 0, 'C')
-                        
-                        if os.path.exists(temp_ev): os.remove(temp_ev)
+        curr_x = pdf.get_x()
+        curr_y = pdf.get_y()
 
-        # 7. Preview & Download
-        pdf_output = pdf.output(dest='S')
-        final_bytes = pdf_output.encode('latin-1') if isinstance(pdf_output, str) else bytes(pdf_output)
+        pdf.cell(w_issue[0], row_h, str(idx+1), 1, 0, 'C')
 
-        date_str = myt_now.strftime('%d%m%Y')
-        clean_filename = selected_template.replace(" ", "_")
-        full_file_name = f"{clean_filename}_{date_str}.pdf"
+        pdf.cell(w_issue[1], row_h, "", 1, 0)
+        pdf.set_xy(curr_x + w_issue[0], curr_y + (row_h - len(lines_issue)*5)/2)
+        pdf.multi_cell(w_issue[1], 5, txt_issue, 0, 'L')
 
-        st.divider()
-        b64 = base64.b64encode(final_bytes).decode('utf-8')
+        pdf.set_xy(curr_x + w_issue[0] + w_issue[1], curr_y)
+        pdf.cell(w_issue[2], row_h, "", 1, 0)
+        pdf.set_xy(curr_x + w_issue[0] + w_issue[1], curr_y + (row_h - len(lines_remark)*5)/2)
+        pdf.multi_cell(w_issue[2], 5, txt_remark, 0, 'L')
+
+        pdf.set_xy(curr_x, curr_y + row_h)
+
+    # 5. Approval
+    pdf.add_page()
+    pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "4.0    APPROVAL & ACCEPTANCE", 0, 1); pdf.ln(5)
+    pdf.set_font('Arial', '', 10)
+    stmt = "The undersigned hereby confirms that the works described in this report have been carried out in accordance with agreed scope."
+    pdf.multi_cell(0, 6, stmt, 0, 'L')
+    
+    p_img.save("p.png"); v_img.save("v.png")
+    y_sig = pdf.get_y() + 10
+    pdf.image("p.png", x=40, y=y_sig, w=40); pdf.image("v.png", x=130, y=y_sig, w=40)
+    pdf.set_y(y_sig + 25)
+    
+    myt_now = datetime.now(timezone.utc) + timedelta(hours=8)
+    gen_timestamp = myt_now.strftime("%d/%m/%Y %H:%M:%S")
+    
+    pdf.set_font('Arial', 'B', 10)
+    pdf.set_x(15); pdf.cell(90, 8, f"PREPARED BY: {tech_name}", 0, 0, 'C')
+    pdf.set_x(105); pdf.cell(90, 8, f"VERIFIED BY: {client_name}", 0, 1, 'C')
+    pdf.set_font('Arial', 'I', 8)
+    pdf.set_x(15); pdf.cell(90, 5, f"MYT: {gen_timestamp}", 0, 0, 'C')
+    pdf.set_x(105); pdf.cell(90, 5, f"MYT: {gen_timestamp}", 0, 1, 'C')
+    if os.path.exists("p.png"): os.remove("p.png")
+    if os.path.exists("v.png"): os.remove("v.png")
+
+    # 6. Attachments
+    if evidence_data:
+        pdf.add_page()
+        pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "5.0    ATTACHMENTS", 0, 1); pdf.ln(5)
         
-        new_tab_js = f"""
-            <script>
-                function openPDF() {{
-                    var pdfData = "data:application/pdf;base64,{b64}";
-                    var win = window.open();
-                    win.document.write('<iframe src="' + pdfData + '" frameborder="0" style="position:fixed; top:0; left:0; bottom:0; right:0; width:100%; height:100%; border:none; margin:0; padding:0; overflow:hidden; z-index:999999;" allowfullscreen></iframe>');
-                }}
-            </script>
-            <button onclick="openPDF()" style="width:100%; background-color:#2e7bcf; color:white; padding:12px; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">
-                👁️ PREVIEW REPORT IN NEW TAB
-            </button>
-        """
-        st.components.v1.html(new_tab_js, height=60)
+        if "SERVER REPORT" in selected_template:
+            for i, ev in enumerate(evidence_data):
+                if i > 0 and i % 2 == 0: pdf.add_page()
+                
+                pos_in_page = i % 2
+                x = 30 
+                y = 35 if pos_in_page == 0 else 145
+                
+                processed_img = process_image(ev['file'])
+                if processed_img:
+                    temp_ev = f"tmp_srv_{i}.jpg"
+                    processed_img.save(temp_ev, "JPEG")
+                    
+                    pdf.rect(x, y, 150, 100) 
+                    pdf.image(temp_ev, x=x+2, y=y+2, w=145, h=90)
+                    
+                    pdf.set_xy(x, y + 95)
+                    pdf.set_font('Arial', 'B', 10)
+                    pdf.multi_cell(150, 6, ev['label'], 0, 'C')
+                    
+                    if os.path.exists(temp_ev): os.remove(temp_ev)
 
-        st.download_button(
-            label=f"📥 DOWNLOAD {full_file_name}",
-            data=final_bytes,
-            file_name=full_file_name,
-            mime="application/pdf",
-            use_container_width=True
-        )
+        else:
+            for i, ev in enumerate(evidence_data):
+                if i > 0 and i % 4 == 0: pdf.add_page()
+                pos = i % 4
+                x, y = [20, 110][pos % 2], [40, 145][pos // 2]
+                
+                processed_img = process_image(ev['file'])
+                if processed_img:
+                    temp_ev = f"tmp_{i}.jpg"
+                    processed_img.save(temp_ev, "JPEG")
+                    pdf.rect(x, y, 80, 80)
+                    pdf.image(temp_ev, x=x+2, y=y+2, w=76, h=60)
+                    pdf.set_xy(x, y + 65)
+                    pdf.set_font('Arial', '', 9)
+                    pdf.multi_cell(80, 5, ev['label'], 0, 'C')
+                    
+                    if os.path.exists(temp_ev): os.remove(temp_ev)
+
+    # 7. Preview & Download
+    pdf_output = pdf.output(dest='S')
+    final_bytes = pdf_output.encode('latin-1') if isinstance(pdf_output, str) else bytes(pdf_output)
+
+    date_str = myt_now.strftime('%d%m%Y')
+    clean_filename = selected_template.replace(" ", "_")
+    full_file_name = f"{clean_filename}_{date_str}.pdf"
+
+    st.divider()
+    b64 = base64.b64encode(final_bytes).decode('utf-8')
+    
+    new_tab_js = f"""
+        <script>
+            function openPDF() {{
+                var pdfData = "data:application/pdf;base64,{b64}";
+                var win = window.open();
+                win.document.write('<iframe src="' + pdfData + '" frameborder="0" style="position:fixed; top:0; left:0; bottom:0; right:0; width:100%; height:100%; border:none; margin:0; padding:0; overflow:hidden; z-index:999999;" allowfullscreen></iframe>');
+            }}
+        </script>
+        <button onclick="openPDF()" style="width:100%; background-color:#2e7bcf; color:white; padding:12px; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">
+            👁️ PREVIEW REPORT IN NEW TAB
+        </button>
+    """
+    st.components.v1.html(new_tab_js, height=60)
+
+    st.download_button(
+        label=f"📥 DOWNLOAD {full_file_name}",
+        data=final_bytes,
+        file_name=full_file_name,
+        mime="application/pdf",
+        use_container_width=True
+    )
