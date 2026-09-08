@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from PIL import Image, ImageOps
 import numpy as np
 from streamlit_drawable_canvas import st_canvas
-
+import base64
 
 
 # --- 1. PENGURUSAN TEMPLATE ---
@@ -14,7 +14,6 @@ TEMPLATE_FILE = 'templates.json'
 TAMBAHAN_FILE = 'templates_tambahan.json' # Fail simpanan untuk perubahan (Add/Delete)
 
 def load_templates():
-    # 1. Load default dari kod jika fail templates.json tak wujud
     defaults = {
        "MET REPORT": {
             "headers": ["NO", "ITEM / ACTIVITY", "PASS", "FAIL", "REMARK"],
@@ -87,7 +86,7 @@ def load_templates():
                 ["HOUSEKEEPING", ["Remove dust on terminals"]]
             ]
         },
-            "LPJ SERVER REPORT": {
+        "LPJ SERVER REPORT": {
             "headers": ["NO", "ITEM / ACTIVITY", "PASS", "FAIL", "REMARK"],
             "widths": [10, 110, 15, 15, 40],
             "type": "checkbox",
@@ -121,24 +120,20 @@ def load_templates():
         }
     }
 
-    # Cipta fail asal jika tiada (untuk rujukan sahaja)
     if not os.path.exists(TEMPLATE_FILE):
         with open(TEMPLATE_FILE, 'w') as f:
             json.dump(defaults, f, indent=4)
 
-    # 2. Keutamaan: Baca fail TAMBAHAN jika wujud (ini mengandungi Add/Delete terbaru)
     if os.path.exists(TAMBAHAN_FILE):
         with open(TAMBAHAN_FILE, 'r') as f:
             return json.load(f)
     
-    # 3. Jika fail tambahan tiada, guna defaults
     return defaults
 
 if 'all_templates' not in st.session_state:
     st.session_state['all_templates'] = load_templates()
 
 def save_templates_to_file():
-    # HANYA simpan ke fail tambahan. Fail asal (TEMPLATE_FILE) tidak akan disentuh.
     with open(TAMBAHAN_FILE, 'w') as f:
         json.dump(st.session_state['all_templates'], f, indent=4)
 
@@ -170,23 +165,24 @@ def process_image(img_input, target_size=(800, 600)):
         return None
 
 def process_signature(img_input):
-    """Menukar data kanvas kepada imej PIL yang bersih"""
-    if img_input is not None:
-        try:
-            # Pastikan img_input adalah numpy array dari st_canvas
-            img = Image.fromarray(img_input.astype('uint8'))
-            alpha = img.split()[-1]
-            bbox = alpha.getbbox()
-            if bbox:
-                img = img.crop(bbox)
-            
-            new_img = Image.new("RGB", img.size, (255, 255, 255))
-            new_img.paste(img, mask=img.split()[-1])
-            return new_img
-        except Exception as e:
-            # Jika img_input bukan array atau ralat lain
+    """Menukar data kanvas kepada imej PIL yang bersih dengan perlindungan ralat"""
+    if img_input is None:
+        return None
+    try:
+        if not np.any(img_input):
             return None
-    return None
+        img = Image.fromarray(img_input.astype('uint8'))
+        alpha = img.split()[-1]
+        bbox = alpha.getbbox()
+        if bbox:
+            img = img.crop(bbox)
+        
+        new_img = Image.new("RGB", img.size, (255, 255, 255))
+        new_img.paste(img, mask=img.split()[-1])
+        return new_img
+    except Exception:
+        return None
+
 class VTMS_Full_Report(FPDF):
     def __init__(self, header_title=""):
         super().__init__()
@@ -216,9 +212,6 @@ class VTMS_Full_Report(FPDF):
 st.set_page_config(page_title="VTMS Reporting System", layout="wide")
 
 with st.sidebar:
-    
-    
-    # Tukar 'logo.png' kepada nama fail logo anda yang sebenar dalam folder
     FIXED_LOGO_PATH = "logo.png" 
     
     if os.path.exists(FIXED_LOGO_PATH):
@@ -347,14 +340,25 @@ ca, cb = st.columns(2)
 with ca: st.write("Prepared By:"); sig1 = st_canvas(stroke_width=2, height=150, width=300, key="sig1", background_color="#ffffff")
 with cb: st.write("Verified By:"); sig2 = st_canvas(stroke_width=2, height=150, width=300, key="sig2", background_color="#ffffff")
 
-# --- 5. PDF GENERATION & PREVIEW (REPLACEMENT) ---
+# --- 5. PDF GENERATION & PREVIEW (FIXED RUNTIME ERROR) ---
 if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=True):
-    # Ambil data imej dari canvas
-    p_img = process_signature(sig1.image_data)
-    v_img = process_signature(sig2.image_data)
-    
+    p_img, v_img = None, None
+
+    # Ambil data canvas dengan selamat menggunakan try-except
+    try:
+        if sig1 is not None and sig1.image_data is not None:
+            p_img = process_signature(sig1.image_data)
+    except Exception:
+        p_img = None
+
+    try:
+        if sig2 is not None and sig2.image_data is not None:
+            v_img = process_signature(sig2.image_data)
+    except Exception:
+        v_img = None
+
     if p_img is None or v_img is None:
-        st.error("Sila turunkan tanda tangan terlebih dahulu!")
+        st.error("Sila turunkan tanda tangan (Prepared By & Verified By) terlebih dahulu!")
     else:
         pdf = VTMS_Full_Report(header_title=header_txt)
         logo_to_use = FIXED_LOGO_PATH if os.path.exists(FIXED_LOGO_PATH) else None
@@ -385,7 +389,7 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
             pdf.cell(10, 10, n, 0, 0)
             pdf.cell(0, 10, t, 0, 1)
 
-       # --- 3. Checklist (LOGIK FIX: KOTAK MANTAP & TEXT CENTERED) ---
+        # 3. Checklist
         pdf.add_page()
         pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "2.0    DETAILS / CHECKLIST", 0, 1)
         
@@ -405,15 +409,11 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
                 pdf.set_font('Arial', '', 7)
                 txt_remark = str(row.get('com', ''))
                 
-                # Kira dulu berapa line Remark ni (Lebar Remark biasanya w_l[4] = 40)
-                # Kita guna simulasi split_only=True
                 lines = pdf.multi_cell(w_l[4], 5, txt_remark, split_only=True)
                 line_count = len(lines)
                 
-                # Tinggi row mestilah cukup untuk semua line (minima 8mm)
                 row_h = max(8, line_count * 5)
 
-                # Cek cukup ruang ke tak
                 if pdf.get_y() + row_h > 270:
                     pdf.add_page()
                     pdf.set_font('Arial', 'B', 8); pdf.set_fill_color(230, 230, 230)
@@ -421,47 +421,32 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
                     pdf.ln()
                     pdf.set_font('Arial', '', 7)
 
-                # --- TEKNIK DRAWING BORDER ---
-                # Simpan posisi awal (X, Y)
                 curr_x = pdf.get_x()
                 curr_y = pdf.get_y()
 
-                # Lukis kotak background/border untuk semua column dulu
-                # Column 1: No
                 pdf.cell(w_l[0], row_h, str(cnt), 1, 0, 'C')
-                # Column 2: Item
                 pdf.cell(w_l[1], row_h, f" {row['task']}", 1, 0, 'L')
                 
                 if config.get("type") == "technical":
                     pdf.cell(w_l[2], row_h, row.get('spec','-'), 1, 0, 'C')
                     pdf.cell(w_l[3], row_h, row.get('actual','-'), 1, 0, 'C')
-                    pdf.cell(w_l[4], row_h, row['res'], 1, 0, 'C') # Guna 0 supaya pointer tak turun dulu
+                    pdf.cell(w_l[4], row_h, row['res'], 1, 0, 'C')
                 else:
-                    # Column 3: Pass
                     pdf.cell(w_l[2], row_h, "X" if row['res'] == "PASS" else "", 1, 0, 'C')
-                    # Column 4: Fail
                     pdf.cell(w_l[3], row_h, "X" if row['res'] == "FAIL" else "", 1, 0, 'C')
                     
-                    # Column 5: Remark (Multi-line)
-                    # Sebelum guna multi_cell, kita set posisi X ke hujung (start column remark)
                     pdf.set_xy(curr_x + w_l[0] + w_l[1] + w_l[2] + w_l[3], curr_y)
-                    
-                    # Kita lukis kotak border luar dulu supaya border tak putus
                     pdf.cell(w_l[4], row_h, "", 1, 0) 
-                    
-                    # Sekarang tulis teks di dalam kotak tu (tanpa border 1, guna 0)
                     pdf.set_xy(curr_x + w_l[0] + w_l[1] + w_l[2] + w_l[3], curr_y + (row_h - (line_count*5))/2)
                     pdf.multi_cell(w_l[4], 5, txt_remark, 0, 'L')
 
-                # Reset posisi ke baris baru
                 pdf.set_xy(curr_x, curr_y + row_h)
                 cnt += 1
 
-        # --- 4. Summary & Issues (LOGIK AUTO-WRAP) ---
+        # 4. Summary & Issues
         pdf.add_page()
         pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "3.0    SUMMARY & ISSUES", 0, 1)
         
-        # Lebar column: NO (15), SUMMARY (85), REMARKS (90) = Total 190mm
         w_issue = [15, 85, 90]
         pdf.set_font('Arial', 'B', 9); pdf.set_fill_color(230, 230, 230)
         pdf.cell(w_issue[0], 10, "NO", 1, 0, 'C', 1)
@@ -473,15 +458,12 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
             txt_issue = str(item['issue'])
             txt_remark = str(item['Remarks'])
             
-            # 1. Kira berapa baris diperlukan untuk Issue dan Remark
             lines_issue = pdf.multi_cell(w_issue[1], 5, txt_issue, split_only=True)
             lines_remark = pdf.multi_cell(w_issue[2], 5, txt_remark, split_only=True)
             
-            # 2. Ambil jumlah baris paling tinggi antara keduanya
             max_lines = max(len(lines_issue), len(lines_remark))
-            row_h = max(10, max_lines * 5) # Tinggi minima 10mm
+            row_h = max(10, max_lines * 5)
             
-            # 3. Check page break
             if pdf.get_y() + row_h > 270:
                 pdf.add_page()
                 pdf.set_font('Arial', 'B', 9); pdf.set_fill_color(230, 230, 230)
@@ -493,21 +475,17 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
             curr_x = pdf.get_x()
             curr_y = pdf.get_y()
 
-            # 4. Lukis Column 1: NO
             pdf.cell(w_issue[0], row_h, str(idx+1), 1, 0, 'C')
 
-            # 5. Lukis Column 2: SUMMARY (Kotak dulu, baru teks multi_cell)
-            pdf.cell(w_issue[1], row_h, "", 1, 0) # Lukis border kotak
+            pdf.cell(w_issue[1], row_h, "", 1, 0)
             pdf.set_xy(curr_x + w_issue[0], curr_y + (row_h - len(lines_issue)*5)/2)
             pdf.multi_cell(w_issue[1], 5, txt_issue, 0, 'L')
 
-            # 6. Lukis Column 3: REMARKS (Kotak dulu, baru teks multi_cell)
             pdf.set_xy(curr_x + w_issue[0] + w_issue[1], curr_y)
-            pdf.cell(w_issue[2], row_h, "", 1, 0) # Lukis border kotak
+            pdf.cell(w_issue[2], row_h, "", 1, 0)
             pdf.set_xy(curr_x + w_issue[0] + w_issue[1], curr_y + (row_h - len(lines_remark)*5)/2)
             pdf.multi_cell(w_issue[2], 5, txt_remark, 0, 'L')
 
-            # Reset pointer ke baris baru
             pdf.set_xy(curr_x, curr_y + row_h)
 
         # 5. Approval
@@ -539,14 +517,11 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
             pdf.add_page()
             pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "5.0    ATTACHMENTS", 0, 1); pdf.ln(5)
             
-            # --- LOGIK KHAS UNTUK SERVER REPORT (2 GAMBAR BESAR: ATAS & BAWAH) ---
             if "SERVER REPORT" in selected_template:
                 for i, ev in enumerate(evidence_data):
-                    # Setiap muka surat hanya muat 2 gambar (Atas & Bawah)
                     if i > 0 and i % 2 == 0: pdf.add_page()
                     
-                    pos_in_page = i % 2 # 0 untuk Atas, 1 untuk Bawah
-                    # X tetap di tengah, Y berubah ikut posisi (Atas: 40, Bawah: 145)
+                    pos_in_page = i % 2
                     x = 30 
                     y = 35 if pos_in_page == 0 else 145
                     
@@ -555,23 +530,19 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
                         temp_ev = f"tmp_srv_{i}.jpg"
                         processed_img.save(temp_ev, "JPEG")
                         
-                        # Lukis Frame & Gambar (Saiz lebih besar: 120x80)
                         pdf.rect(x, y, 150, 100) 
                         pdf.image(temp_ev, x=x+2, y=y+2, w=145, h=90)
                         
-                        # Caption di bawah gambar
                         pdf.set_xy(x, y + 95)
                         pdf.set_font('Arial', 'B', 10)
                         pdf.multi_cell(150, 6, ev['label'], 0, 'C')
                         
                         if os.path.exists(temp_ev): os.remove(temp_ev)
 
-            # --- LOGIK UNTUK TEMPLATE LAIN (KEKALKAN 4 GAMBAR: 2X2) ---
             else:
                 for i, ev in enumerate(evidence_data):
                     if i > 0 and i % 4 == 0: pdf.add_page()
                     pos = i % 4
-                    # Susunan asal awak (2 column, 2 row)
                     x, y = [20, 110][pos % 2], [40, 145][pos // 2]
                     
                     processed_img = process_image(ev['file'])
@@ -586,7 +557,7 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
                         
                         if os.path.exists(temp_ev): os.remove(temp_ev)
 
-        # --- LANGKAH 7: NEW TAB PREVIEW & DOWNLOAD ---
+        # 7. Preview & Download
         pdf_output = pdf.output(dest='S')
         final_bytes = pdf_output.encode('latin-1') if isinstance(pdf_output, str) else bytes(pdf_output)
 
@@ -595,10 +566,8 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
         full_file_name = f"{clean_filename}_{date_str}.pdf"
 
         st.divider()
-        import base64
         b64 = base64.b64encode(final_bytes).decode('utf-8')
         
-        # JavaScript Button untuk New Tab
         new_tab_js = f"""
             <script>
                 function openPDF() {{
@@ -620,17 +589,3 @@ if st.button("🚀 GENERATE FINAL REPORT", type="primary", use_container_width=T
             mime="application/pdf",
             use_container_width=True
         )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
